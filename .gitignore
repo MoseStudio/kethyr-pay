@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+.output/
+dist/
+build/
+*.tsbuildinfo
+
+# Environment variables (keep .env.example tracked)
+.env
+.env.local
+.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+.cache/
+
+# Aleo / Leo
+*.aleo.build/
+deploy-output.json
+
+# Experiments
+experiments/*/node_modules/
+experiments/*/dist/
+
+# Agent tooling (auto-generated, not part of the repo)
+.commandcode/
+
+
+
+# Git worktrees (session-scoped)
+.worktrees/
