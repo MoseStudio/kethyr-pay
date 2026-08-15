@@ -33,15 +33,20 @@ KethyrPay 是一个**开发者优先（Developer-first）、默认隐私、兼�
 
 ```
 连接钱包 → 商家铸造发票 (create_invoice) → 转移给付款人 (transfer_invoice)
-→ 付款人支付 (pay_invoice, 真实 ZK Proof) → 链上确认 (verifyPayment)
-→ 商家后台收款明细 → View Key 账期导出
+→ 付款人转账 (credits.aleo::transfer_public, 真实资金流动)
+→ 付款人支付 (pay_invoice, 真实 ZK Proof, 转账确认后才消费发票)
+→ 链上确认 (verifyPayment) → 商家后台收款明细 → View Key 账期导出
 ```
+
+> **安全设计**：支付流程先执行 credits 转账并等待链上确认（60s 超时），
+> 确认成功后才签名 `pay_invoice` 消费发票——杜绝「只消费发票不转账」漏洞。
 
 ## 核心亮点
 
 | 特性 | 说明 |
 |------|------|
 | 🔒 隐私收单 | 链上 PaymentRecord 为密文，金额/付款人仅 View Key 可解密 |
+| 💸 真实资金流 | 支付含 `credits.aleo::transfer_public` 转账，钱包余额真实变动 |
 | ⚖️ 合规底线 | Sender Ciphertext 承诺（group 元素）链上可审计，不碰 Mixer |
 | 🧾 防重放 | InvoiceRecord.serial_number = BHP256 哈希，同一发票仅支付一次 |
 | 📊 商家后台 | 累计收款 + 交易明细 + RFC-4180 CSV / JSON 账期导出 |
@@ -87,15 +92,17 @@ VITE_USE_REAL_TRANSACTIONS=true
 VITE_RPC_ENDPOINT=https://api.explorer.provable.com/v1   # 默认端点不可达时的覆盖
 ```
 
-浏览器需安装 **Shield Wallet** 扩展并切换到 Testnet。
-
 ### 演示动线
 
 ```
-商家钱包 → /merchant/invoice 铸造并转移发票
-付款人钱包 → Checkout 链接支付（真实 ZK Proof）
+商家钱包 → /merchant/invoice 铸造并转移发票 → 「打开支付页」直达 Checkout
+付款人钱包 → Checkout 支付（先签 transfer_public 转账，确认后再签 pay_invoice）
+付款人钱包 → status 页确认成功（金额 + 两笔交易 ID）→ 「商家后台」直达
 商家钱包 → /merchant 见收款明细 + /merchant/export 导出账期
 ```
+
+浏览器需安装 **Shield Wallet** 扩展并切换到 Testnet；钱包需授权
+`pay_private_v2.aleo` + `credits.aleo` 两个程序（代码已声明，重连钱包生效）。
 
 ## 产品路线图
 
@@ -149,6 +156,7 @@ VITE_RPC_ENDPOINT=https://api.explorer.provable.com/v1   # 默认端点不可达
 ## 关键技术决策
 
 - **Proving 策略**：MVP 阶段坚决采用 **Client-side Proving**（慢几秒但架构极简、安全性最高，私钥不出设备）；Scaling 阶段再引入 **Delegate Proving**（Compute Key 保护资产不丢失，优化移动端/弱网体验）。
+- **支付流程（兼容性设计 → 演进）**：当前支付为**两笔交易**——先 `transfer_public` 公开转账并确认链上成功，再 `pay_invoice` 消费发票产出隐私收款记录（`pay_private_v2.aleo` 聚焦证明与记账，Leo 暂无法原子转账）。未来演进：**私有转账**（`transfer_private` 保护付款金额隐私）→ **原子化**（合约内完成转账+消费发票，单笔交易）。无论哪种方式，**「先转账、确认成功、再消费发票」安全不变量始终成立**。
 - **合规底线**：坚决不碰混币器（Mixer）。任何转账必须包含 **Sender Ciphertext**，确保收款人（及授权监管方）有权知道资金来源——这是 KethyrPay 不被司法部/SEC 封杀的底线。
 
 ## Testnet 部署
@@ -165,6 +173,7 @@ VITE_RPC_ENDPOINT=https://api.explorer.provable.com/v1   # 默认端点不可达
 - 收单合约设计：[`contracts/pay_private/DESIGN.md`](contracts/pay_private/DESIGN.md)
 - 收单合约部署：[`contracts/pay_private/DEPLOYMENT.md`](contracts/pay_private/DEPLOYMENT.md)
 - 托管订阅合约设计：[`contracts/escrow_subscription/DESIGN.md`](contracts/escrow_subscription/DESIGN.md)
+- Demo 自助操作流程：[`docs/DEMO_WALKTHROUGH.md`](docs/DEMO_WALKTHROUGH.md)
 - SDK 使用：[`packages/sdk/README.md`](packages/sdk/README.md)
 - Demo 说明：[`frontend/demo/README.md`](frontend/demo/README.md)
 
