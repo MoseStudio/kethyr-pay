@@ -52,6 +52,8 @@ KethyrPay 是一个**开发者优先（Developer-first）、默认隐私、兼�
 → 链上确认 (verifyPayment) → 商家后台收款明细 → View Key 账期导出
 ```
 
+[![KethyrPay 宣传视频](https://github.com/MoseStudio/kethyr-pay/raw/main/video/out/poster.jpg)](https://github.com/user-attachments/assets/0dc1de97-dc1c-4be5-a8b8-1c799bb5e88a)
+
 > **安全设计**：支付流程先执行 credits 转账并等待链上确认（60s 超时），
 > 确认成功后才签名 `pay_invoice` 消费发票——杜绝「只消费发票不转账」漏洞。
 
