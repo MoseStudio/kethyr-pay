@@ -170,7 +170,7 @@ export function createPayInvoiceTransaction(
     merchant: string
     /** InvoiceRecord 明文（Leo 记录字面量），由商家在 create_invoice 后持有 */
     invoiceRecord?: string
-    /** 付款人公钥承诺（group 字面量，如 "1group"） */
+    /** 付款人公钥承诺（group 字面量，如 "0group"） */
     senderCiphertext?: string
     /** 交易费（microcredits，默认 0.1 credits） */
     fee?: number
@@ -185,8 +185,8 @@ export function createPayInvoiceTransaction(
   const amountU64 = encodeU64(amount)
 
   const inputs = invoiceRecord
-    ? [invoiceRecord, amountU64, senderCiphertext ?? '1group']
-    : [invoiceId, amountU64, senderCiphertext ?? '1group']
+    ? [invoiceRecord, amountU64, senderCiphertext ?? '0group']
+    : [invoiceId, amountU64, senderCiphertext ?? '0group']
 
   return createTransactionOptions(
     'pay_invoice',

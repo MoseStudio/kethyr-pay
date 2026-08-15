@@ -60,7 +60,7 @@ describe('parsePaymentRecord（pay_private.aleo PaymentRecord 解析）', () => 
       owner: MERCHANT,
       merchant: MERCHANT,
       sender: 'aleo1abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123',
-      sender_ciphertext: '1group',
+      sender_ciphertext: '0group',
       amount: '500000u64',
       invoice_id: '123field',
     })
@@ -74,6 +74,75 @@ describe('parsePaymentRecord（pay_private.aleo PaymentRecord 解析）', () => 
     expect(parsePaymentRecord('garbage')).toBeNull()
     expect(parsePaymentRecord(null)).toBeNull()
     expect(parsePaymentRecord({ foo: 'bar' })).toBeNull()
+  })
+
+  it('解析 Shield OwnedRecord 形态（recordPlaintext 优先，顶层 owner 是 commitment 不污染）', () => {
+    const sender = 'aleo1' + 'b'.repeat(58)
+    const recordPlaintext = `{
+      owner: ${MERCHANT}.private,
+      merchant: ${MERCHANT}.private,
+      sender: ${sender}.private,
+      sender_ciphertext: 123456789group.private,
+      amount: 500000u64.private,
+      invoice_id: 1661438398field.private,
+      _nonce: 1group.public,
+    }`
+    const raw = {
+      blockHeight: 18732941,
+      commitment:
+        '6498815943267326755357337847109418364419246433435944011905912834896332482072field',
+      functionName: 'pay_invoice',
+      owner: '5816678430409870700679217267518351456853540762943589178368590156379864613704field',
+      programName: 'pay_private_v2.aleo',
+      recordName: 'PaymentRecord',
+      recordPlaintext,
+      recordView: {
+        fields: {
+          owner: `${MERCHANT}.private`,
+          merchant: `${MERCHANT}.private`,
+          sender: `${sender}.private`,
+          sender_ciphertext: '123456789group.private',
+          amount: '500000u64.private',
+          invoice_id: '1661438398field.private',
+          _nonce: '1group.public',
+        },
+      },
+      spent: false,
+    }
+    const parsed = parsePaymentRecord(raw)
+    expect(parsed).toEqual({
+      owner: MERCHANT,
+      merchant: MERCHANT,
+      sender,
+      sender_ciphertext: '123456789group',
+      amount: '500000',
+      invoice_id: '1661438398',
+    })
+  })
+
+  it('Shield OwnedRecord 无 recordPlaintext 时回退 recordView.fields', () => {
+    const sender = 'aleo1' + 'b'.repeat(58)
+    const raw = {
+      functionName: 'pay_invoice',
+      owner: '5816678430409870700679217267518351456853540762943589178368590156379864613704field',
+      programName: 'pay_private_v2.aleo',
+      recordName: 'PaymentRecord',
+      recordView: {
+        fields: {
+          owner: `${MERCHANT}.private`,
+          merchant: `${MERCHANT}.private`,
+          sender: `${sender}.private`,
+          amount: '250000u64.private',
+          invoice_id: '42field.private',
+        },
+      },
+      spent: false,
+    }
+    const parsed = parsePaymentRecord(raw)
+    expect(parsed?.owner).toBe(MERCHANT)
+    expect(parsed?.merchant).toBe(MERCHANT)
+    expect(parsed?.amount).toBe('250000')
+    expect(parsed?.invoice_id).toBe('42')
   })
 })
 

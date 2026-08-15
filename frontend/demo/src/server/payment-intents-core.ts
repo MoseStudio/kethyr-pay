@@ -121,8 +121,8 @@ export function createPayInvoiceTransaction(params: {
   const amountU64 = encodeU64(amount)
 
   const inputs = invoiceRecord
-    ? [invoiceRecord, amountU64, senderCiphertext ?? '1group']
-    : [invoiceId, amountU64, senderCiphertext ?? '1group']
+    ? [invoiceRecord, amountU64, senderCiphertext ?? '0group']
+    : [invoiceId, amountU64, senderCiphertext ?? '0group']
 
   return {
     program: PROGRAM_ID,

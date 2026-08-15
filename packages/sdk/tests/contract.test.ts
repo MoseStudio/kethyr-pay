@@ -166,7 +166,7 @@ describe('createTransactionOptions', () => {
       merchant: 'aleo1' + 'a'.repeat(58),
     })
     expect(opts.function).toBe('pay_invoice')
-    expect(opts.inputs).toEqual(['123456789', '1500000u64', '1group'])
+    expect(opts.inputs).toEqual(['123456789', '1500000u64', '0group'])
   })
 
   it('createPayInvoiceTransaction：带 invoiceRecord 时记录优先', () => {
@@ -178,7 +178,7 @@ describe('createTransactionOptions', () => {
       merchant: 'aleo1' + 'a'.repeat(58),
       invoiceRecord: record,
     })
-    expect(opts.inputs).toEqual([record, '1500000u64', '1group'])
+    expect(opts.inputs).toEqual([record, '1500000u64', '0group'])
   })
 })
 

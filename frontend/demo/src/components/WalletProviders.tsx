@@ -28,6 +28,7 @@ function FallbackProvider({ children }: { children: ReactNode }) {
         },
         exportViewKey: async () => null,
         requestTransactionHistory: async () => [],
+        transactionStatus: async () => ({ status: 'unknown' }),
         decryptRecord: async () => null,
       }}
     >
@@ -73,6 +74,9 @@ function AdapterBridge({
     exportViewKey: async () => null,
     requestTransactionHistory: async (program) => {
       return wallet.requestTransactionHistory(program)
+    },
+    transactionStatus: async (transactionId) => {
+      return wallet.transactionStatus(transactionId)
     },
     // 记录密文解密：钱包 decrypt(ciphertext) 在授权后返回明文 JSON
     decryptRecord: async (ciphertext) => {
@@ -147,7 +151,8 @@ export function WalletProviders({ children }: { children: ReactNode }) {
       // 声明需要同步记录的程序：Shield 钱包只自动同步 connect 时列出的程序，
       // 缺省时 requestRecords('pay_private_v2.aleo') 会返回空数组，
       // 导致铸造发票后扫描不到 InvoiceRecord（ALEO-MVP-018 H5 联调）。
-      programs={['pay_private_v2.aleo']}
+      // credits.aleo 用于 transfer_public 支付（付款人转账 credits 给商家）。
+      programs={['pay_private_v2.aleo', 'credits.aleo']}
     >
       <WalletModalProvider>
         <AdapterBridge useWallet={useWallet}>{children}</AdapterBridge>

@@ -26,11 +26,13 @@ import {
   useNavigate,
 } from '@tanstack/react-router'
 import type { PaymentIntent } from '@kethyrpay/sdk'
+import { createPayInvoiceTransaction, creditsToMicrocredits, paymentIdToField } from '@kethyrpay/sdk'
 
 import { RequireWallet } from '@/components/RequireWallet.tsx'
 import { WalletStatus } from '@/components/WalletStatus.tsx'
 import { useAleoWallet } from '@/hooks/useAleoWallet.ts'
 import { usePerformance } from '@/hooks/usePerformance.ts'
+import { parseInvoiceRecord } from '@/lib/invoice-record.ts'
 import {
   buildDemoPaymentIntent,
   fetchPaymentIntent,
@@ -95,7 +97,8 @@ function CheckoutPage() {
   const search = Route.useSearch()
   const navigate = useNavigate()
 
-  const { connected, publicKey, signTransaction } = useAleoWallet()
+  const { connected, publicKey, signTransaction, requestRecords, transactionStatus } =
+    useAleoWallet()
   const { startPhase, endPhase } = usePerformance()
 
   // ---- 数据来源：demo 参数优先，否则走后端发票 API（012） ----
@@ -190,21 +193,117 @@ function CheckoutPage() {
     }
   }
 
-  /** 支付主流程：签名 → 广播 → 埋点 → 跳转状态页 */
+  /** 支付主流程：先转账 credits → 确认成功 → 再消费发票（pay_invoice）。
+   *  顺序与确认是安全关键：绝不允许「只消费发票不转账」。 */
   const handlePay = async () => {
     if (intentState.kind !== 'ready') return
     const intent = intentState.intent
     setError(null)
     setPayStatus('signing')
 
-    try {
-      startPhase('checkout-prove')
-      const txId = await signTransaction(intent.transaction)
-      endPhase('checkout-prove')
-
-      if (!txId) {
-        throw new Error('Transaction was submitted but no transaction ID was returned.')
+    /** 签名交易并轮询确认链上成功，返回链上交易 ID（at1...）。失败抛错。 */
+    const signAndConfirm = async (
+      label: string,
+      transaction: unknown,
+      timeoutMs = 60_000,
+    ): Promise<string> => {
+      const jobId = await signTransaction(transaction)
+      if (!jobId) {
+        throw new Error(`${label} 签名失败：未返回交易 ID。`)
       }
+      console.log(`[kethyrpay:checkout] ${label} signed, jobId =`, jobId)
+
+      // Shield 返回 job ID（shield_...），轮询 transactionStatus 拿链上交易 ID
+      if (!/^shield_/.test(String(jobId))) return String(jobId)
+      const deadline = Date.now() + timeoutMs
+      let lastError: unknown = null
+      while (Date.now() < deadline) {
+        try {
+          const res = await transactionStatus(String(jobId))
+          console.log(`[kethyrpay:checkout] ${label} status`, res)
+          if (res.transactionId && /^at1/.test(res.transactionId)) {
+            return res.transactionId
+          }
+          if (res.status === 'failed' || res.status === 'rejected' || res.error) {
+            throw new Error(`${label} 链上失败：${res.error ?? res.status}`)
+          }
+          lastError = null
+        } catch (err) {
+          if (err instanceof Error && /链上失败/.test(err.message)) throw err
+          lastError = err
+        }
+        await new Promise((r) => setTimeout(r, 3000))
+      }
+      throw new Error(
+        `${label} 确认超时（${timeoutMs / 1000}s 内未上链）。` +
+          (lastError ? ` 最后错误：${String(lastError)}` : ''),
+      )
+    }
+
+    try {
+      // 1. 用付款人钱包自己扫描到的 InvoiceRecord 构造 pay_invoice 交易参数
+      //    （先构造，确认发票存在；真正签名在转账确认后）
+      let payInvoiceTx = intent.transaction
+      if (demoParams.invoiceRecord && publicKey) {
+        const expectedField = paymentIdToField(invoiceId)
+        const records = (await requestRecords('pay_private_v2.aleo', true)) ?? []
+        const owned = records
+          .map(parseInvoiceRecord)
+          .find(
+            (r) =>
+              r &&
+              r.owner === publicKey &&
+              r.invoiceId === expectedField &&
+              !r.spent &&
+              r.plaintext,
+          )
+        if (owned) {
+          payInvoiceTx = createPayInvoiceTransaction({
+            invoiceId: expectedField,
+            amount: intent.amount,
+            merchant: intent.merchant,
+            invoiceRecord: owned.plaintext,
+            senderCiphertext: '0group',
+          })
+          console.log('[kethyrpay:checkout] using wallet-owned InvoiceRecord', {
+            owner: owned.owner,
+            invoiceId: owned.invoiceId,
+          })
+        } else {
+          throw new Error(
+            '未能在当前钱包中找到待支付的 InvoiceRecord。请确认：1) 商家已通过 transfer_invoice 把发票转移给你；2) 钱包已同步/扫描到该记录（等待链上确认或刷新钱包记录）。',
+          )
+        }
+      }
+
+      // 2. 先转账 credits（credits.aleo::transfer_public 是标准公开转账）
+      startPhase('checkout-prove')
+      const amountU64 = `${creditsToMicrocredits(intent.amount).toString()}u64`
+      console.log('[kethyrpay:checkout] signing credits transfer', {
+        to: intent.merchant,
+        amount: amountU64,
+      })
+      const transferTxId = await signAndConfirm(
+        'credits transfer_public',
+        {
+          program: 'credits.aleo',
+          function: 'transfer_public',
+          inputs: [intent.merchant, amountU64],
+          fee: 100_000,
+          privateFee: false,
+        },
+      )
+      console.log('[kethyrpay:checkout] credits transfer confirmed on chain:', transferTxId)
+
+      // 3. 转账已确认，才签名 pay_invoice 消费发票
+      console.log('[kethyrpay:checkout] transaction inputs before sign', {
+        program: (payInvoiceTx as { program?: string }).program,
+        function: (payInvoiceTx as { function?: string }).function,
+        inputs: (payInvoiceTx as { inputs?: unknown[] }).inputs,
+      })
+      const payTxId = await signAndConfirm('pay_invoice', payInvoiceTx)
+      console.log('[kethyrpay:checkout] pay_invoice confirmed on chain:', payTxId)
+      endPhase('checkout-prove')
 
       startPhase('checkout-broadcast')
       endPhase('checkout-broadcast')
@@ -217,7 +316,12 @@ function CheckoutPage() {
       await navigate({
         to: '/pay/$invoiceId/status',
         params: { invoiceId },
-        search: { tx: String(txId), return_url: returnUrl ?? undefined },
+        search: {
+          tx: payTxId,
+          transfer_tx: transferTxId,
+          amount: intent.amount,
+          return_url: returnUrl ?? undefined,
+        },
       })
     } catch (err) {
       const classified = classifyPaymentError(err)

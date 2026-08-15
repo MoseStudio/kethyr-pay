@@ -14,6 +14,7 @@
  */
 
 import type { PaymentIntentRecord } from './payment-intents.ts'
+import { unwrapRecord } from './invoice-record.ts'
 
 /** 链上 PaymentRecord 明文（pay_private.aleo 结构） */
 export interface PaymentRecordPlaintext {
@@ -108,12 +109,11 @@ function extractField(obj: Record<string, unknown>, key: string): string {
 
 /**
  * 解析 pay_private.aleo 的 PaymentRecord。
- * 接受两种形态：
- * - JSON：`{ "owner": "...", "merchant": "...", "sender": "...", ... }`（钱包解密后/API 返回）
- * - Leo 记录字面量：`{ owner: aleo1...private, merchant: ..., amount: 1u64, ... }`
- * 解析失败返回 null。
+ * 兼容 Shield OwnedRecord（recordPlaintext / recordView.fields）与其他
+ * wallet-standard RecordEnvelope 形态。解析失败返回 null。
  */
 export function parsePaymentRecord(input: unknown): PaymentRecordPlaintext | null {
+  // 直接字符串（Leo 记录字面量 / JSON）
   if (typeof input === 'string') {
     const trimmed = input.trim()
     if (!trimmed) return null
@@ -156,22 +156,36 @@ export function parsePaymentRecord(input: unknown): PaymentRecordPlaintext | nul
     }
   }
 
-  if (input !== null && typeof input === 'object') {
-    const obj = input as Record<string, unknown>
-    const owner = extractField(obj, 'owner')
-    const merchant = extractField(obj, 'merchant')
-    if (!owner || !merchant) return null
-    return {
-      owner,
-      merchant,
-      sender: extractField(obj, 'sender'),
-      sender_ciphertext: extractField(obj, 'sender_ciphertext'),
-      amount: extractField(obj, 'amount').replace(/u64$/, ''),
-      invoice_id: extractField(obj, 'invoice_id').replace(/field$/, ''),
-    }
-  }
+  // 对象形态（Shield OwnedRecord / RecordEnvelope）：
+  // 用通用 unwrapRecord 提取结构化字段与明文，避免顶层 owner（commitment）污染。
+  const { fields, plaintext } = unwrapRecord(input)
+  const p = plaintext
 
-  return null
+  // 从 Leo 记录字面量提取（最可靠）
+  const ownerFromLiteral = p ? /owner:\s*(aleo1[a-z0-9]{58})/.exec(p)?.[1] : undefined
+  const merchantFromLiteral = p ? /merchant:\s*(aleo1[a-z0-9]{58})/.exec(p)?.[1] : undefined
+  const senderFromLiteral = p ? /sender:\s*(aleo1[a-z0-9]{58})/.exec(p)?.[1] : undefined
+  const senderCiphertextFromLiteral = p
+    ? /sender_ciphertext:\s*([0-9]+group)/.exec(p)?.[1]
+    : undefined
+  const amountFromLiteral = p ? /amount:\s*([0-9]+)u64/.exec(p)?.[1] : undefined
+  const invoiceIdFromLiteral = p ? /invoice_id:\s*([0-9]+)field/.exec(p)?.[1] : undefined
+
+  const owner = ownerFromLiteral ?? fields.owner ?? fields.$owner ?? ''
+  const merchant = merchantFromLiteral ?? fields.merchant ?? fields.$merchant ?? ''
+  if (!owner || !merchant) return null
+
+  return {
+    owner,
+    merchant,
+    sender: senderFromLiteral ?? fields.sender ?? '',
+    sender_ciphertext:
+      senderCiphertextFromLiteral ?? fields.sender_ciphertext ?? '',
+    amount: stripVisibilitySuffix(amountFromLiteral ?? fields.amount ?? '').replace(/u64$/, ''),
+    invoice_id: stripVisibilitySuffix(
+      invoiceIdFromLiteral ?? fields.invoice_id ?? '',
+    ).replace(/field$/, ''),
+  }
 }
 
 /**

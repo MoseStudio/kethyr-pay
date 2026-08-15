@@ -29,6 +29,7 @@ import { ConnectWalletButton } from '@/components/ConnectWalletButton.tsx'
 import { WalletStatus } from '@/components/WalletStatus.tsx'
 import { useAleoWallet } from '@/hooks/useAleoWallet.ts'
 import { usePerformance } from '@/hooks/usePerformance.ts'
+import { parseInvoiceRecord } from '@/lib/invoice-record.ts'
 import { generateDemoInvoiceId } from '@/lib/payment-intents.ts'
 
 export const Route = createFileRoute('/merchant/invoice')({
@@ -44,8 +45,14 @@ type MintState =
   | { kind: 'error'; message: string }
 
 function MerchantInvoice() {
-  const { loaded, connected, publicKey, signTransaction, requestRecords } =
-    useAleoWallet()
+  const {
+    loaded,
+    connected,
+    publicKey,
+    signTransaction,
+    requestRecords,
+    requestTransactionHistory,
+  } = useAleoWallet()
   const { startPhase, endPhase } = usePerformance()
 
   const [amount, setAmount] = useState('1.5')
@@ -62,23 +69,39 @@ function MerchantInvoice() {
   ): Promise<string | null> => {
     const records = (await requestRecords('pay_private_v2.aleo', true)) ?? []
     for (const raw of records) {
-      const record = parseInvoiceRecord(raw)
+      const parsed = parseInvoiceRecord(raw)
+      // 诊断：打印每条记录解析结果，定位匹配失败原因
+      console.log('[kethyrpay:invoice] findInvoiceRecord candidate', {
+        rawKeys:
+          raw !== null && typeof raw === 'object'
+            ? Object.keys(raw as Record<string, unknown>)
+            : typeof raw,
+        parsed,
+        wantOwner: merchantAddr,
+        wantInvoiceId: invoiceId,
+      })
       // transfer_invoice 需要完整 Leo 记录字面量（含 _nonce），
       // recordView 结构化字段缺 _nonce 无法重建，必须拿到 plaintext 字符串。
       if (
-        record &&
-        record.plaintext &&
-        record.owner === merchantAddr &&
-        record.invoiceId === invoiceId &&
-        !record.spent
+        parsed &&
+        parsed.plaintext &&
+        parsed.owner === merchantAddr &&
+        parsed.invoiceId === invoiceId &&
+        !parsed.spent
       ) {
-        return record.plaintext
+        return parsed.plaintext
       }
     }
     return null
   }
 
   const handleMint = async () => {
+    console.log('[kethyrpay:invoice] handleMint start', {
+      merchant,
+      hasSign: typeof signTransaction,
+      amount,
+      payee,
+    })
     if (!merchant || !signTransaction) return
     setError(null)
 
@@ -106,21 +129,43 @@ function MerchantInvoice() {
     setState({ kind: 'minting' })
     try {
       startPhase('invoice-create')
+      console.log('[kethyrpay:invoice] signing create_invoice', tx)
       const createTxRaw = await signTransaction(tx)
       endPhase('invoice-create')
       const createTx = String(createTxRaw)
+      console.log('[kethyrpay:invoice] create_invoice signed, tx =', createTx)
 
       // 扫描新发票记录（链上确认需要时间，重试几次）
+      // 注意：Shield 的 requestRecords 依赖钱包内部的记录同步（定时/按需），
+      // 新铸造的记录可能需要较长时间才进入钱包缓存；这里延长窗口并提示手动刷新。
       let record: string | null = null
-      for (let attempt = 0; attempt < 6 && !record; attempt++) {
+      for (let attempt = 0; attempt < 20 && !record; attempt++) {
         await new Promise((r) => setTimeout(r, 3000))
-        record = await findInvoiceRecord(merchant, invoiceIdField)
+        try {
+          // 先请求交易历史，尝试触发 Shield 钱包对链上记录的同步/扫描；
+          // requestRecords 只返回钱包已缓存的记录，新铸造的记录需要钱包先扫描到。
+          try {
+            await requestTransactionHistory('pay_private_v2.aleo')
+          } catch (historyErr) {
+            console.warn('[kethyrpay:invoice] requestTransactionHistory failed', historyErr)
+          }
+          const raw = await requestRecords('pay_private_v2.aleo', true)
+          console.log(`[kethyrpay:invoice] scan attempt ${attempt}: raw =`, raw)
+          record = await findInvoiceRecord(merchant, invoiceIdField)
+          console.log(`[kethyrpay:invoice] scan attempt ${attempt}: found =`, record)
+        } catch (scanErr) {
+          console.error(`[kethyrpay:invoice] scan attempt ${attempt} threw`, scanErr)
+        }
       }
 
       if (!record) {
+        console.error('[kethyrpay:invoice] FAILED to find InvoiceRecord after attempts', {
+          merchant,
+          invoiceIdField,
+        })
         setState({
           kind: 'error',
-          message: `发票交易已广播（${createTx}），但未能在链上扫描到 InvoiceRecord。请稍后在 Explorer 确认交易后再试。`,
+          message: `发票交易已广播（${createTx}），但未能在 60s 内从钱包扫描到 InvoiceRecord。请确认交易已在链上（Explorer），然后在 Shield 钱包中刷新记录（重新连接钱包 / 等待钱包同步）后，重新点击「铸造并转移发票」。`,
         })
         return
       }
@@ -128,11 +173,17 @@ function MerchantInvoice() {
       // 转移到付款人
       setState({ kind: 'transferring', createTx, record })
       startPhase('invoice-transfer')
+      console.log('[kethyrpay:invoice] signing transfer_invoice', {
+        to: payeeAddr,
+        recordLen: record.length,
+        recordPreview: record.slice(0, 200),
+      })
       const transferTxRaw = await signTransaction(
         transferInvoiceTransaction({ invoiceRecord: record, to: payeeAddr }),
       )
       endPhase('invoice-transfer')
       const transferTx = String(transferTxRaw)
+      console.log('[kethyrpay:invoice] transfer_invoice signed, tx =', transferTx)
 
       const checkoutUrl =
         `${window.location.origin}/pay/${invoiceId}` +
@@ -140,9 +191,15 @@ function MerchantInvoice() {
         `&invoice_record=${encodeURIComponent(record)}`
       setState({ kind: 'done', createTx, transferTx, checkoutUrl })
     } catch (err) {
+      console.error('[kethyrpay:invoice] handleMint threw', err)
       setState({
         kind: 'error',
-        message: err instanceof Error ? err.message : '发票铸造失败。',
+        message:
+          err instanceof Error
+            ? err.message
+            : typeof err === 'string'
+              ? err
+              : '发票铸造失败。',
       })
     }
   }
@@ -247,6 +304,15 @@ function MerchantInvoice() {
                   className="w-full break-all rounded-lg border border-green-200 bg-white p-2 font-mono text-xs"
                   onFocus={(e) => e.currentTarget.select()}
                 />
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.location.href = state.checkoutUrl
+                  }}
+                  className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 font-semibold text-white hover:bg-emerald-700"
+                >
+                  打开支付页 →
+                </button>
               </div>
             )}
           </div>
@@ -254,111 +320,4 @@ function MerchantInvoice() {
       </div>
     </main>
   )
-}
-
-/** 从 requestRecords 原始返回中提取 InvoiceRecord 明文（兼容多层包装） */
-function parseInvoiceRecord(raw: unknown): {
-  owner: string
-  amount: string
-  invoiceId: string
-  plaintext: string
-  spent?: boolean
-} | null {
-  /** 剥离记录字段值的可见性后缀（.private / .public） */
-  const strip = (v: unknown): string =>
-    String(v ?? '')
-      .trim()
-      .replace(/\.(private|public)$/, '')
-
-  /**
-   * 兼容 requestRecords 返回的多种形态（同时提取结构化字段 + plaintext 字符串）：
-   * - { recordView: { fields: { owner: "...", amount: "...", ... } }, plaintext: "..." }
-   *   —— wallet-standard RecordEnvelope（fields 是对象，非数组；plaintext 为 Leo 字面量）
-   * - { plaintext: "..." }（字符串）或 { plaintext: { owner: "...", ... } }（对象）
-   * - 直接字符串（Leo 记录字面量）
-   *
-   * 注意：plaintext 字符串（含 _nonce）是 transfer_invoice 签名所必需的，
-   * 因此 recordView 形态下也必须保留，不能因 fields 存在而丢弃。
-   */
-  const unwrap = (r: unknown): { fields: Record<string, string>; plaintext: string } => {
-    const empty = { fields: {} as Record<string, string>, plaintext: '' }
-    if (r === null || typeof r !== 'object') {
-      // 直接字符串形态
-      return typeof r === 'string' && r.length > 0
-        ? { fields: {}, plaintext: r }
-        : empty
-    }
-    const obj = r as Record<string, unknown>
-    const fields: Record<string, string> = {}
-
-    // 形态 1：recordView.fields（对象）
-    if (obj.recordView && typeof obj.recordView === 'object') {
-      const rv = obj.recordView as Record<string, unknown>
-      if (rv.fields && typeof rv.fields === 'object' && !Array.isArray(rv.fields)) {
-        for (const [k, v] of Object.entries(rv.fields as Record<string, unknown>)) {
-          if (typeof v === 'string') fields[k] = strip(v)
-        }
-      }
-    }
-
-    // plaintext：字符串（Leo 字面量）或对象（结构化字段）
-    let plaintext = ''
-    if (typeof obj.plaintext === 'string') {
-      plaintext = obj.plaintext
-    } else if (obj.plaintext && typeof obj.plaintext === 'object') {
-      for (const [k, v] of Object.entries(obj.plaintext as Record<string, unknown>)) {
-        if (typeof v === 'string') fields[k] = strip(v)
-      }
-    }
-
-    // 形态 3：记录本身平铺为对象（owner / amount / invoice_id 顶层）
-    if (
-      typeof obj.owner === 'string' ||
-      typeof obj.invoice_id === 'string' ||
-      typeof obj.amount === 'string'
-    ) {
-      for (const [k, v] of Object.entries(obj)) {
-        if (typeof v === 'string') fields[k] = strip(v)
-      }
-    }
-
-    return { fields, plaintext }
-  }
-
-  const { fields, plaintext } = unwrap(raw)
-
-  // 从结构化 fields 提取（recordView.fields / plaintext 对象 / 平铺对象）
-  const owner = fields.owner ?? fields.$owner ?? ''
-  const amount = fields.amount ?? ''
-  const invoiceId = fields.invoice_id ?? fields.$invoice_id ?? ''
-  if (owner && amount) {
-    return {
-      owner,
-      amount: strip(amount).replace(/u64$/, ''),
-      invoiceId: strip(invoiceId).replace(/field$/, ''),
-      plaintext,
-      spent: typeof (raw as Record<string, unknown>)?.spent === 'boolean'
-        ? ((raw as Record<string, unknown>).spent as boolean)
-        : undefined,
-    }
-  }
-
-  // 从 Leo 字面量（字符串）提取
-  const p = plaintext || (typeof raw === 'string' ? raw : '')
-  if (!p) return null
-
-  const ownerMatch = /owner:\s*(aleo1[a-z0-9]{58})/.exec(p)
-  const amountMatch = /amount:\s*([0-9]+)u64/.exec(p)
-  const invoiceIdMatch = /invoice_id:\s*([0-9]+)field/.exec(p)
-  if (!ownerMatch || !amountMatch) return null
-
-  return {
-    owner: ownerMatch[1],
-    amount: amountMatch[1],
-    invoiceId: invoiceIdMatch ? invoiceIdMatch[1] : '',
-    plaintext: p,
-    spent: typeof (raw as Record<string, unknown>)?.spent === 'boolean'
-      ? ((raw as Record<string, unknown>).spent as boolean)
-      : undefined,
-  }
 }

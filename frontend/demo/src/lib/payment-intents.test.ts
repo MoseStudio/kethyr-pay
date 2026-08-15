@@ -98,7 +98,7 @@ describe('buildDemoPaymentIntent', () => {
     expect(intent.transaction).toMatchObject({
       program: 'pay_private_v2.aleo',
       function: 'pay_invoice',
-      inputs: ['inv_demo_abcd1234', '1500000u64', '1group'],
+      inputs: ['inv_demo_abcd1234', '1500000u64', '0group'],
       fee: 100000,
     })
   })

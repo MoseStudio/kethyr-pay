@@ -20,7 +20,11 @@ const config = defineConfig({
     devtools(),
     nitro(),
     tailwindcss(),
-    tanstackStart(),
+    tanstackStart({
+      router: {
+        routeFileIgnorePattern: '\\.(test|spec)\\.(ts|tsx)$',
+      },
+    }),
     viteReact(),
     wasm(),
     topLevelAwait(),
@@ -48,7 +52,7 @@ const config = defineConfig({
     },
   ],
   optimizeDeps: {
-    exclude: ['@provablehq/sdk'],
+    exclude: ['@provablehq/sdk', '@kethyrpay/sdk'],
     include: [
       '@provablehq/aleo-wallet-adaptor-react',
       '@provablehq/aleo-wallet-adaptor-react-ui',

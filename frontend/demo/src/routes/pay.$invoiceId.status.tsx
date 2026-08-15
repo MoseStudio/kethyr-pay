@@ -16,6 +16,7 @@ import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { KethyrPay, type PaymentStatus } from '@kethyrpay/sdk'
 
 import { WalletStatus } from '@/components/WalletStatus.tsx'
+import { useAleoWallet } from '@/hooks/useAleoWallet.ts'
 import { parseStatusSearch, pollProgress, sanitizeHttpUrl } from '@/lib/checkout.ts'
 
 /** 轮询超时：默认 60s（与 SDK DEFAULT_POLL_TIMEOUT_MS 一致） */
@@ -32,6 +33,8 @@ function resolveRpcEndpoint(queryRpc?: string): string | undefined {
 
 interface StatusSearch {
   tx?: string
+  transfer_tx?: string
+  amount?: string
   return_url?: string
   rpc?: string
 }
@@ -42,6 +45,14 @@ export const Route = createFileRoute('/pay/$invoiceId/status')({
     const parsed = parseStatusSearch(search)
     return {
       tx: parsed.txId,
+      transfer_tx:
+        typeof search.transfer_tx === 'string' && search.transfer_tx.trim()
+          ? search.transfer_tx.trim()
+          : undefined,
+      amount:
+        typeof search.amount === 'string' || typeof search.amount === 'number'
+          ? String(search.amount)
+          : undefined,
       return_url: parsed.returnUrl,
       rpc: parsed.rpcEndpoint,
     }
@@ -57,10 +68,12 @@ function PaymentStatusPage() {
   const { invoiceId } = Route.useParams()
   const search = Route.useSearch()
   const navigate = useNavigate()
+  const { transactionStatus } = useAleoWallet()
 
   const [pollState, setPollState] = useState<PollState>({ kind: 'polling' })
   const [elapsedMs, setElapsedMs] = useState(0)
   const [attempt, setAttempt] = useState(0)
+  const [manualTx, setManualTx] = useState('')
   const abortRef = useRef<{ abort: () => void } | null>(null)
 
   // 60s 进度倒计时 tick（仅 polling 时）
@@ -79,17 +92,74 @@ function PaymentStatusPage() {
     setElapsedMs(0)
 
     const rpcEndpoint = resolveRpcEndpoint(search.rpc)
+    console.log('[kethyrpay:status] startPolling', { search, invoiceId })
     // verifyPayment 是 KethyrPay 实例方法：skipWasmInit + memory 钱包避免浏览器依赖，
     // verifyPayment 本身不触达 WASM / 钱包，仅做 RPC 轮询。
-    void KethyrPay.create({ skipWasmInit: true })
-      .then((kethyrPay) =>
-        kethyrPay.verifyPayment(invoiceId, {
+    // 轮询需要链上交易 ID（at1...）。Shield 的 signTransaction 返回 job ID（shield_...），
+    // 用 transactionStatus(jobId) 解析出链上交易 ID；若已是 at1... 直接使用。
+    const resolveChainTxId = async (): Promise<string | null> => {
+      // 手动输入的链上交易 ID 优先（兜底路径）
+      const manual = manualTx.trim()
+      if (manual) {
+        if (/^at1/.test(manual)) return manual
+        return null
+      }
+      const rawTx = search.tx?.trim()
+      console.log('[kethyrpay:status] resolveChainTxId rawTx =', JSON.stringify(rawTx))
+      if (!rawTx) return null
+      if (/^at1/.test(rawTx)) return rawTx
+
+      // job ID（shield_...）→ transactionStatus 轮询直到拿到链上交易 ID
+      for (let i = 0; i < 10; i++) {
+        try {
+          const res = await transactionStatus(rawTx)
+          console.log(`[kethyrpay:status] transactionStatus attempt ${i}`, res)
+          if (res.transactionId && /^at1/.test(res.transactionId)) {
+            return res.transactionId
+          }
+          if (res.error) {
+            console.warn('[kethyrpay:status] transactionStatus error', res.error)
+          }
+          if (res.status === 'failed' || res.status === 'rejected') {
+            return null
+          }
+        } catch (err) {
+          console.warn('[kethyrpay:status] transactionStatus threw', err)
+        }
+        // 交易上链需要时间，等待后重试
+        await new Promise((r) => setTimeout(r, 3000))
+      }
+      return null
+    }
+
+    void (async () => {
+      try {
+        const chainTxId = await resolveChainTxId()
+        if (!chainTxId) {
+          if (controller.signal.aborted) return
+          setPollState({
+            kind: 'failed',
+            status: {
+              status: 'failed',
+              error:
+                '无法解析链上交易 ID（钱包连接不可用）。交易可能已成功，请在 Shield 钱包历史或 Explorer 中确认，然后使用页面底部的「用交易 ID 查询」重试。',
+            },
+          })
+          return
+        }
+        const kethyrPay = await KethyrPay.create({ skipWasmInit: true })
+        console.log('[kethyrpay:status] verifyPayment params', {
+          invoiceId,
+          chainTxId,
+          searchAmount: search.amount,
+        })
+        const status = await kethyrPay.verifyPayment(invoiceId, {
           timeoutMs: DEFAULT_TIMEOUT_MS,
           intervalMs: DEFAULT_INTERVAL_MS,
           ...(rpcEndpoint ? { rpcEndpoint } : {}),
-        }),
-      )
-      .then((status: PaymentStatus) => {
+          transactionId: chainTxId,
+          ...(search.amount ? { expectedAmount: search.amount } : {}),
+        })
         if (controller.signal.aborted) return
         if (status.status === 'confirmed') {
           setPollState({ kind: 'confirmed', status })
@@ -102,13 +172,13 @@ function PaymentStatusPage() {
             status: { status: 'failed', error: '支付状态未知。', transaction_id: status.transaction_id },
           })
         }
-      })
-      .catch((err: unknown) => {
+      } catch (err: unknown) {
         if (controller.signal.aborted) return
         const message = err instanceof Error ? err.message : '支付状态查询失败。'
         setPollState({ kind: 'failed', status: { status: 'failed', error: message } })
-      })
-  }, [invoiceId, search.rpc])
+      }
+    })()
+  }, [invoiceId, search.rpc, search.tx, transactionStatus, manualTx])
 
   useEffect(() => {
     startPolling()
@@ -134,6 +204,13 @@ function PaymentStatusPage() {
     pollState.kind === 'polling'
       ? undefined
       : pollState.status.transaction_id ?? undefined
+
+  // 展示金额：SDK 返回非 0 用它；否则回退 URL 传入的已知金额
+  // （隐私模型下链上金额是密文，SDK 可能解析不到，用付款人已知金额兜底）
+  const displayAmount =
+    pollState.kind === 'confirmed' && Number(pollState.status.amount) > 0
+      ? pollState.status.amount
+      : search.amount
 
   const progress = pollProgress(elapsedMs, DEFAULT_TIMEOUT_MS)
   const remainingSeconds = Math.max(0, Math.ceil((DEFAULT_TIMEOUT_MS - elapsedMs) / 1000))
@@ -179,7 +256,7 @@ function PaymentStatusPage() {
             <div className="mb-6 rounded-xl bg-green-50 p-6 text-center">
               <p className="text-2xl font-extrabold text-green-800">支付成功 ✓</p>
               <p className="mt-2 text-5xl font-extrabold text-gray-900">
-                {pollState.status.amount}
+                {displayAmount ?? '0'}
                 <span className="ml-2 text-2xl font-semibold text-gray-500">credits</span>
               </p>
             </div>
@@ -197,6 +274,14 @@ function PaymentStatusPage() {
                   {pollState.status.transaction_id}
                 </span>
               </div>
+              {search.transfer_tx && (
+                <div className="flex items-start justify-between gap-4">
+                  <span className="font-medium text-gray-500">转账交易</span>
+                  <span className="font-mono text-gray-800 break-all text-right">
+                    {search.transfer_tx}
+                  </span>
+                </div>
+              )}
               <div className="flex items-start justify-between gap-4">
                 <span className="font-medium text-gray-500">Explorer</span>
                 <a
@@ -220,6 +305,12 @@ function PaymentStatusPage() {
                 </a>
               )}
               <Link
+                to="/merchant"
+                className="flex-1 rounded-lg border border-emerald-300 px-4 py-3 text-center font-medium text-emerald-700 hover:bg-emerald-50"
+              >
+                商家后台
+              </Link>
+              <Link
                 to="/"
                 className="flex-1 rounded-lg border border-gray-300 px-4 py-3 text-center font-medium text-gray-700 hover:bg-gray-50"
               >
@@ -234,6 +325,30 @@ function PaymentStatusPage() {
             <div className="mb-6 rounded-xl bg-red-50 p-6 text-center">
               <p className="text-2xl font-extrabold text-red-800">支付未确认</p>
               <p className="mt-2 text-sm text-red-700 break-all">{pollState.status.error}</p>
+            </div>
+
+            {/* 兜底：手动输入链上交易 ID 查询（钱包连接不可用时） */}
+            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
+              <p className="mb-2 text-sm font-medium text-amber-800">
+                交易已在钱包/Explorer 确认？手动输入链上交易 ID（at1...）查询
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={manualTx}
+                  onChange={(e) => setManualTx(e.target.value)}
+                  placeholder="at1..."
+                  className="flex-1 rounded-lg border border-amber-300 px-3 py-2 font-mono text-sm focus:border-amber-500 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={retry}
+                  disabled={!manualTx.trim()}
+                  className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  查询
+                </button>
+              </div>
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row">

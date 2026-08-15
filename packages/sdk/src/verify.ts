@@ -29,6 +29,18 @@ export interface VerifyPaymentOptions {
   intervalMs?: number
   /** RPC 端点（默认 https://api.testnet.aleo.org） */
   rpcEndpoint?: string
+  /**
+   * 链上交易 ID（at1...）。由支付方在签名广播后获得，用于轮询确认；
+   * 缺省时回退到 paymentId（发票 ID）——仅适用于测试/内部路径，
+   * 真实链路必须传交易 ID（getTransaction 需要交易 ID）。
+   */
+  transactionId?: string
+  /**
+   * 期望支付金额（credits，十进制字符串）。Aleo 隐私模型下链上金额是
+   * 密文，付款人侧无法从 RPC 交易直接解析明文；确认成功时用该值作为
+   * 回执金额（付款人支付时已知的金额即正确金额）。
+   */
+  expectedAmount?: string
 }
 
 /** 按交易 ID 查询链上交易的回调（测试注入点） */
@@ -201,6 +213,8 @@ export async function pollPaymentStatus(
 ): Promise<PaymentStatus> {
   const timeoutMs = options.timeoutMs ?? DEFAULT_POLL_TIMEOUT_MS
   const intervalMs = options.intervalMs ?? DEFAULT_POLL_INTERVAL_MS
+  // 链上查询用交易 ID（真实链路由支付方提供）；缺省回退 paymentId（测试/内部路径）
+  const transactionId = options.transactionId ?? paymentId
 
   const deadline = Date.now() + timeoutMs
   let lastError: unknown = null
@@ -208,13 +222,18 @@ export async function pollPaymentStatus(
   // 立即查询一次，随后按间隔轮询
   for (;;) {
     try {
-      const tx = await fetchTransaction(paymentId)
+      const tx = await fetchTransaction(transactionId)
       if (tx && isTransactionConfirmed(tx, paymentId)) {
         const receipt = extractPaymentReceipt(tx, paymentId)
         return {
           status: 'confirmed',
           transaction_id: tx.id ?? paymentId,
-          amount: receipt?.amount ?? '0',
+          // 隐私模型下链上金额是密文，付款人侧无法解析明文；
+          // 有 expectedAmount 时用它（付款人支付时已知的金额即正确金额）。
+          amount:
+            options.expectedAmount ??
+            receipt?.amount ??
+            '0',
           invoice_id: receipt?.invoice_id ?? paymentId,
         }
       }

@@ -21,6 +21,15 @@ export interface AleoWallet {
    */
   requestTransactionHistory: (program: string) => Promise<unknown>
   /**
+   * 查询交易的链上状态（Shield 的 executeTransaction 返回 job ID，
+   * 用 transactionStatus(jobId) 拿到链上交易 ID 与确认状态）。
+   */
+  transactionStatus: (transactionId: string) => Promise<{
+    status: string
+    transactionId?: string
+    error?: string
+  }>
+  /**
    * 解密一条记录密文（View Key 解密路径，ALEO-MVP-015/016）。
    * 钱包未实现时返回 null（调用方可用 exportViewKey + WASM 解密兜底）。
    */
@@ -42,6 +51,7 @@ const defaultWallet: AleoWallet = {
   },
   exportViewKey: async () => null,
   requestTransactionHistory: async () => [],
+  transactionStatus: async () => ({ status: 'unknown' }),
   decryptRecord: async () => null,
 }
 
