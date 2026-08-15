@@ -2,6 +2,14 @@
 
 > **Aleo x OpenBuild 亚太黑客松 · PAY 隐私支付赛道**
 
+## 宣传视频
+
+<video src="video/out/Kethyrpay.mp4" controls width="100%" poster="video/out/poster.jpg"></video>
+
+> 完整演示：浏览器端 ZK 证明 → 真实链上转账 → 隐私收款记录 → View Key 合规导出。
+
+---
+
 KethyrPay 是一个**开发者优先（Developer-first）、默认隐私、兼顾合规**的 Stripe-like 隐私收单与订阅支付网关。
 
 商家用几行 SDK 代码即可集成隐私收款；付款人在浏览器本地生成 ZK Proof（Client-side Proving，私钥不出钱包）完成支付；链上 `PaymentRecord` 携带 **Sender Ciphertext** 承诺——金额与付款人身份仅持有 View Key 的商家可解密，隐私与合规审计双满足。
