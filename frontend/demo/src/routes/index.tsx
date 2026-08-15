@@ -1,7 +1,7 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useAleoWallet } from '@/hooks/useAleoWallet.ts'
 
-/** demo 商家地址：HANDOFF §3 的 pay_private.aleo 部署者地址 */
+/** demo 商家地址：pay_private_v2.aleo 部署者地址 */
 const DEMO_MERCHANT = 'aleo1cdsz2pdt2wsejg4rqfx5hnkwc3nndsn2c5fafuycjtg440e2gcrqdv8z69'
 
 export const Route = createFileRoute('/')({
@@ -19,7 +19,7 @@ function Home() {
           A
         </div>
         <h1 className="text-5xl font-extrabold tracking-tight text-gray-900">
-          AleoPay
+          KethyrPay
         </h1>
         <p className="max-w-md text-lg text-gray-600">
           Privacy-first subscription payments on Aleo. Authorize recurring

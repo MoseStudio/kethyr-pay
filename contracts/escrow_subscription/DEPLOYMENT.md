@@ -33,7 +33,7 @@ leo deploy --network testnet --broadcast --yes --json-output=deploy-output.json
 
 ### Frontend Configuration
 
-The deployed program ID matches the local program ID (`escrow_subscription.aleo`), so no code change is required in `frontend/aleopay-demo/src/lib/contract.ts`.
+The deployed program ID matches the local program ID (`escrow_subscription.aleo`), so no code change is required in `frontend/demo/src/lib/contract.ts`.
 
 To enable real transactions, set the environment variable:
 

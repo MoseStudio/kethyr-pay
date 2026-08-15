@@ -1,10 +1,10 @@
-# AleoPay Escrow Subscription POC
+# KethyrPay Escrow Subscription POC
 
-Proof-of-concept Leo smart contract for the AleoPay escrow subscription module.
+Proof-of-concept Leo smart contract for the KethyrPay escrow subscription module.
 
 ## Project Purpose
 
-This repository contains the initial Leo program scaffolding for the escrow subscription functionality of AleoPay. The goal is to provide a minimal, buildable Leo project that serves as the foundation for subscription-based escrow logic on the Aleo network.
+This repository contains the initial Leo program scaffolding for the escrow subscription functionality of KethyrPay. The goal is to provide a minimal, buildable Leo project that serves as the foundation for subscription-based escrow logic on the Aleo network.
 
 ## Requirements
 

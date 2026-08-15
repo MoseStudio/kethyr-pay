@@ -1,7 +1,7 @@
 /**
- * AleoPay 主类：一次性完成 SDK / WASM / 钱包初始化。
+ * KethyrPay 主类：一次性完成 SDK / WASM / 钱包初始化。
  *
- * - `AleoPay.create()`：静态工厂，幂等初始化 Aleo WASM SDK + 创建钱包适配器
+ * - `KethyrPay.create()`：静态工厂，幂等初始化 Aleo WASM SDK + 创建钱包适配器
  * - `connectWallet()` / `disconnectWallet()` / `getPublicKey()`：钱包生命周期
  * - `createPayment()` / `verifyPayment()`：ALEO-MVP-007 / 008 的**类型签名占位**，
  *   当前抛 NotImplementedError，后续 wave 直接填充实现（依赖 contract.ts 的编码 helpers）
@@ -34,13 +34,13 @@ import type {
 /** 未实现错误：用于后续 wave 的占位方法 */
 export class NotImplementedError extends Error {
   constructor(feature: string) {
-    super(`[AleoPay] ${feature} 尚未实现`)
+    super(`[KethyrPay] ${feature} 尚未实现`)
     this.name = 'NotImplementedError'
   }
 }
 
 /** 默认支付链接域名（Checkout 落地页前缀，商家可覆盖） */
-export const DEFAULT_PAYMENT_BASE_URL = 'https://pay.aleopay.example'
+export const DEFAULT_PAYMENT_BASE_URL = 'https://pay.kethyrpay.example'
 
 /** 发票默认过期时长（30 分钟） */
 export const DEFAULT_EXPIRES_IN_MS = 30 * 60 * 1000
@@ -78,8 +78,8 @@ export function validateMerchant(merchant: string): string {
   return encodeAddress(merchant.trim())
 }
 
-/** AleoPay 构造选项 */
-export interface AleoPayOptions {
+/** KethyrPay 构造选项 */
+export interface KethyrPayOptions {
   /** 钱包适配器工厂：默认使用 createShieldAdapter()（浏览器）；传入 memory 便于测试/本地开发 */
   wallet?: () => Promise<WalletAdapter> | WalletAdapter
   /** 是否跳过 WASM 初始化（默认 false；测试或纯内存场景可置 true） */
@@ -95,15 +95,15 @@ export interface AleoPayOptions {
 }
 
 /**
- * AleoPay 主类。
+ * KethyrPay 主类。
  *
  * 用法：
  * ```ts
- * const aleoPay = await AleoPay.create()
- * const publicKey = await aleoPay.connectWallet()
+ * const kethyrPay = await KethyrPay.create()
+ * const publicKey = await kethyrPay.connectWallet()
  * ```
  */
-export class AleoPay {
+export class KethyrPay {
   /** 钱包适配器（框架无关） */
   readonly wallet: WalletAdapter
 
@@ -140,7 +140,7 @@ export class AleoPay {
    * - `skipWasmInit: true` 时跳过 initializeWasm / initThreadPool
    *   （测试或服务端场景；createAccount() 等 WASM 能力不可用）
    */
-  static async create(options: AleoPayOptions = {}): Promise<AleoPay> {
+  static async create(options: KethyrPayOptions = {}): Promise<KethyrPay> {
     let wasmReady = false
 
     if (!options.skipWasmInit) {
@@ -151,7 +151,7 @@ export class AleoPay {
     const walletFactory = options.wallet ?? createShieldAdapter
     const wallet = await walletFactory()
 
-    const instance = new AleoPay(
+    const instance = new KethyrPay(
       wallet,
       wasmReady,
       options.paymentBaseUrl ?? DEFAULT_PAYMENT_BASE_URL,

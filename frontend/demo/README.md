@@ -1,6 +1,6 @@
-# AleoPay Demo
+# KethyrPay Demo
 
-A minimal TanStack Start frontend proof-of-concept for the AleoPay Wave 1 initiative. It demonstrates type-safe file-based routing with placeholder pages for the core payment flows: authorization, payment, and cancellation.
+A minimal TanStack Start frontend proof-of-concept for the KethyrPay Wave 1 initiative. It demonstrates type-safe file-based routing with placeholder pages for the core payment flows: authorization, payment, and cancellation.
 
 ## Getting Started
 
@@ -27,7 +27,7 @@ pnpm build
 ## Directory Structure
 
 ```
-aleopay-demo/
+demo/
 ├── package.json          # Project dependencies and scripts
 ├── pnpm-lock.yaml        # pnpm lockfile
 ├── tsconfig.json         # TypeScript configuration (strict mode enabled)

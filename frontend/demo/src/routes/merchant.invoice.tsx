@@ -23,7 +23,7 @@ import {
   isValidAleoAddress,
   paymentIdToField,
   transferInvoiceTransaction,
-} from '@aleopay/sdk'
+} from '@kethyrpay/sdk'
 
 import { ConnectWalletButton } from '@/components/ConnectWalletButton.tsx'
 import { WalletStatus } from '@/components/WalletStatus.tsx'

@@ -25,7 +25,7 @@ function makeRecord(partial: Partial<PaymentIntentRecord>): PaymentIntentRecord 
     amount: '1.500000',
     merchant: MERCHANT,
     expires_at: new Date(Date.now() + 3_600_000).toISOString(),
-    payment_url: `https://pay.aleopay.example/pay/inv_00000001`,
+    payment_url: `https://pay.kethyrpay.example/pay/inv_00000001`,
     transaction: { program: 'pay_private.aleo', function: 'pay_invoice', inputs: [] },
     idempotencyKey: `${MERCHANT}:1.500000`,
     createdAt: '2026-08-14T10:00:00.000Z',

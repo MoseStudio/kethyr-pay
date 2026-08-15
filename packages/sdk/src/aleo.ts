@@ -1,7 +1,7 @@
 /**
  * Aleo WASM SDK 初始化封装。
  *
- * 照搬 POC `frontend/aleopay-demo/src/lib/aleo.ts` 的模式：
+ * 照搬 POC `frontend/demo/src/lib/aleo.ts` 的模式：
  * `initializeWasm()` + `initThreadPool(4)`，并用模块级标志保证幂等（重复调用不重复初始化）。
  */
 

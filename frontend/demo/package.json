@@ -1,5 +1,5 @@
 {
-  "name": "aleopay-demo",
+  "name": "kethyrpay-demo",
   "private": true,
   "type": "module",
   "imports": {
@@ -14,7 +14,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@aleopay/sdk": "file:../../packages/sdk",
+    "@kethyrpay/sdk": "file:../../packages/sdk",
     "@provablehq/aleo-types": "^1.0.1",
     "@provablehq/aleo-wallet-adaptor-core": "^1.0.1",
     "@provablehq/aleo-wallet-adaptor-react": "^1.0.1",

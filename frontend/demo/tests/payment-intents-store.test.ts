@@ -44,7 +44,7 @@ describe('InMemoryPaymentIntentStore', () => {
       expect(record.expires_at).toBeDefined()
       expect(Date.parse(record.expires_at)).toBeGreaterThan(Date.now())
       expect(record.payment_url).toBe(
-        `https://pay.aleopay.example/pay/${record.invoice_id}`,
+        `https://pay.kethyrpay.example/pay/${record.invoice_id}`,
       )
       // 交易参数（可直接交给钱包 signTransaction）
       expect(record.transaction.program).toBe('pay_private_v2.aleo')

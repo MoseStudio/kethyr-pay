@@ -174,7 +174,7 @@ describe('pollPaymentStatus（状态机）', () => {
 
   it('空 paymentId 由上层校验（verifyPayment 内联处理）', async () => {
     const fetchTx: FetchTransaction = async () => null
-    // pollPaymentStatus 本身不做空校验（由 AleoPay.verifyPayment 处理）
+    // pollPaymentStatus 本身不做空校验（由 KethyrPay.verifyPayment 处理）
     const result = await pollPaymentStatus('', fetchTx, {
       timeoutMs: 100,
       intervalMs: 10,

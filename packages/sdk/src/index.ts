@@ -1,7 +1,7 @@
 /**
- * @aleopay/sdk — AleoPay 最小 SDK 公共入口。
+ * @kethyrpay/sdk — KethyrPay 最小 SDK 公共入口。
  *
- * 导出全部公共 API：WASM 初始化、合约编码 helpers、钱包适配器抽象、AleoPay 主类、类型。
+ * 导出全部公共 API：WASM 初始化、合约编码 helpers、钱包适配器抽象、KethyrPay 主类、类型。
  */
 
 // WASM / 账户
@@ -42,17 +42,17 @@ export {
   type MemoryWalletOptions,
 } from './wallet.js'
 
-// AleoPay 主类
+// KethyrPay 主类
 export {
-  AleoPay,
+  KethyrPay,
   NotImplementedError,
   DEFAULT_PAYMENT_BASE_URL,
   DEFAULT_EXPIRES_IN_MS,
   generateInvoiceId,
   normalizeAmount,
   validateMerchant,
-  type AleoPayOptions,
-} from './aleopay.js'
+  type KethyrPayOptions,
+} from './kethyrpay.js'
 
 // verifyPayment 轮询核心（ALEO-MVP-008）
 export {

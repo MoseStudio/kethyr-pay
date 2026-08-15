@@ -12,7 +12,7 @@
 
 import { useState } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
-import { isValidAleoAddress } from '@aleopay/sdk'
+import { isValidAleoAddress } from '@kethyrpay/sdk'
 
 import { WalletStatus } from '@/components/WalletStatus.tsx'
 import { generateDemoInvoiceId, sanitizeReturnUrl } from '@/lib/payment-intents.ts'

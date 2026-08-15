@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  AleoPay,
+  KethyrPay,
   DEFAULT_PAYMENT_BASE_URL,
   generateInvoiceId,
   normalizeAmount,
   validateMerchant,
-} from '../src/aleopay.js'
+} from '../src/kethyrpay.js'
 import {
   createMemoryWalletAdapter,
   createShieldAdapter,
@@ -52,54 +52,54 @@ function makeConfirmedTx(): TransactionJSON {
   } as unknown as TransactionJSON
 }
 
-describe('AleoPay 主类', () => {
+describe('KethyrPay 主类', () => {
   it('create() 完成初始化并注入内存钱包（skipWasmInit）', async () => {
-    const aleoPay = await AleoPay.create({
+    const kethyrPay = await KethyrPay.create({
       skipWasmInit: true,
       wallet: makeMemoryWallet,
     })
 
-    expect(aleoPay).toBeInstanceOf(AleoPay)
-    expect(aleoPay.wasmReady).toBe(false)
-    expect(aleoPay.connected).toBe(false)
-    expect(aleoPay.wallet.name).toBe('Memory Wallet')
+    expect(kethyrPay).toBeInstanceOf(KethyrPay)
+    expect(kethyrPay.wasmReady).toBe(false)
+    expect(kethyrPay.connected).toBe(false)
+    expect(kethyrPay.wallet.name).toBe('Memory Wallet')
   })
 
   it('autoConnect 在 create 时自动连接钱包', async () => {
-    const aleoPay = await AleoPay.create({
+    const kethyrPay = await KethyrPay.create({
       skipWasmInit: true,
       wallet: makeMemoryWallet,
       autoConnect: true,
     })
-    expect(aleoPay.connected).toBe(true)
-    expect(aleoPay.getPublicKey()).toBe('aleo1' + 'b'.repeat(58))
+    expect(kethyrPay.connected).toBe(true)
+    expect(kethyrPay.getPublicKey()).toBe('aleo1' + 'b'.repeat(58))
   })
 
   it('connectWallet / disconnectWallet / getPublicKey 生命周期', async () => {
-    const aleoPay = await AleoPay.create({
+    const kethyrPay = await KethyrPay.create({
       skipWasmInit: true,
       wallet: makeMemoryWallet,
     })
 
-    expect(aleoPay.getPublicKey()).toBeNull()
+    expect(kethyrPay.getPublicKey()).toBeNull()
 
-    const address = await aleoPay.connectWallet()
+    const address = await kethyrPay.connectWallet()
     expect(address).toBe('aleo1' + 'b'.repeat(58))
-    expect(aleoPay.connected).toBe(true)
-    expect(aleoPay.getPublicKey()).toBe(address)
+    expect(kethyrPay.connected).toBe(true)
+    expect(kethyrPay.getPublicKey()).toBe(address)
 
-    await aleoPay.disconnectWallet()
-    expect(aleoPay.connected).toBe(false)
-    expect(aleoPay.getPublicKey()).toBeNull()
+    await kethyrPay.disconnectWallet()
+    expect(kethyrPay.connected).toBe(false)
+    expect(kethyrPay.getPublicKey()).toBeNull()
   })
 
   it('createPayment 返回完整 PaymentIntent（含交易参数）', async () => {
-    const aleoPay = await AleoPay.create({
+    const kethyrPay = await KethyrPay.create({
       skipWasmInit: true,
       wallet: makeMemoryWallet,
     })
 
-    const intent = await aleoPay.createPayment({ amount: '1.5', merchant: MERCHANT })
+    const intent = await kethyrPay.createPayment({ amount: '1.5', merchant: MERCHANT })
 
     expect(intent.invoice_id).toMatch(/^inv_[0-9a-f]{8}$/)
     expect(intent.amount).toBe('1.500000')
@@ -116,56 +116,56 @@ describe('AleoPay 主类', () => {
   })
 
   it('createPayment 使用自定义 paymentBaseUrl', async () => {
-    const aleoPay = await AleoPay.create({
+    const kethyrPay = await KethyrPay.create({
       skipWasmInit: true,
       wallet: makeMemoryWallet,
-      paymentBaseUrl: 'https://checkout.aleopay.dev',
+      paymentBaseUrl: 'https://checkout.kethyrpay.dev',
     })
 
-    const intent = await aleoPay.createPayment({ amount: '0.01', merchant: MERCHANT })
+    const intent = await kethyrPay.createPayment({ amount: '0.01', merchant: MERCHANT })
     expect(intent.payment_url).toBe(
-      `https://checkout.aleopay.dev/pay/${intent.invoice_id}`,
+      `https://checkout.kethyrpay.dev/pay/${intent.invoice_id}`,
     )
   })
 
   it('createPayment 校验金额（非法 / 零 / 负数 / 非数字）', async () => {
-    const aleoPay = await AleoPay.create({
+    const kethyrPay = await KethyrPay.create({
       skipWasmInit: true,
       wallet: makeMemoryWallet,
     })
 
     await expect(
-      aleoPay.createPayment({ amount: '0', merchant: MERCHANT }),
+      kethyrPay.createPayment({ amount: '0', merchant: MERCHANT }),
     ).rejects.toThrow('Invalid payment amount')
     await expect(
-      aleoPay.createPayment({ amount: -5, merchant: MERCHANT }),
+      kethyrPay.createPayment({ amount: -5, merchant: MERCHANT }),
     ).rejects.toThrow('Invalid payment amount')
     await expect(
-      aleoPay.createPayment({ amount: 'abc', merchant: MERCHANT }),
+      kethyrPay.createPayment({ amount: 'abc', merchant: MERCHANT }),
     ).rejects.toThrow('Invalid payment amount')
     await expect(
-      aleoPay.createPayment({ amount: '1e-7', merchant: MERCHANT }),
+      kethyrPay.createPayment({ amount: '1e-7', merchant: MERCHANT }),
     ).rejects.toThrow('Invalid payment amount')
   })
 
   it('createPayment 校验商家地址（非法地址抛错）', async () => {
-    const aleoPay = await AleoPay.create({
+    const kethyrPay = await KethyrPay.create({
       skipWasmInit: true,
       wallet: makeMemoryWallet,
     })
 
     await expect(
-      aleoPay.createPayment({ amount: '1', merchant: 'aleo1invalid' }),
+      kethyrPay.createPayment({ amount: '1', merchant: 'aleo1invalid' }),
     ).rejects.toThrow('Invalid Aleo address')
   })
 
   it('createPayment 尊重 expiresInMs（自定义过期时间）', async () => {
-    const aleoPay = await AleoPay.create({
+    const kethyrPay = await KethyrPay.create({
       skipWasmInit: true,
       wallet: makeMemoryWallet,
     })
 
-    const intent = await aleoPay.createPayment({
+    const intent = await kethyrPay.createPayment({
       amount: '1',
       merchant: MERCHANT,
       expiresInMs: 60_000,
@@ -176,13 +176,13 @@ describe('AleoPay 主类', () => {
   })
 
   it('verifyPayment 注入 fetchTransaction → confirmed（ALEO-MVP-008）', async () => {
-    const aleoPay = await AleoPay.create({
+    const kethyrPay = await KethyrPay.create({
       skipWasmInit: true,
       wallet: makeMemoryWallet,
       fetchTransaction: async () => makeConfirmedTx(),
     })
 
-    const status = await aleoPay.verifyPayment(PAYMENT_ID, { timeoutMs: 100 })
+    const status = await kethyrPay.verifyPayment(PAYMENT_ID, { timeoutMs: 100 })
 
     expect(status.status).toBe('confirmed')
     if (status.status === 'confirmed') {
@@ -193,13 +193,13 @@ describe('AleoPay 主类', () => {
   })
 
   it('verifyPayment 空 paymentId → failed', async () => {
-    const aleoPay = await AleoPay.create({
+    const kethyrPay = await KethyrPay.create({
       skipWasmInit: true,
       wallet: makeMemoryWallet,
       fetchTransaction: async () => null,
     })
 
-    const status = await aleoPay.verifyPayment('')
+    const status = await kethyrPay.verifyPayment('')
     expect(status.status).toBe('failed')
     if (status.status === 'failed') {
       expect(status.error).toContain('paymentId')
@@ -212,7 +212,7 @@ describe('AleoPay 主类', () => {
       amount: '1.5',
       merchant: MERCHANT,
       expires_at: new Date().toISOString(),
-      payment_url: 'https://pay.aleopay.example/pay/inv_001',
+      payment_url: 'https://pay.kethyrpay.example/pay/inv_001',
       transaction: {
         program: 'pay_private_v2.aleo',
         function: 'pay_invoice',

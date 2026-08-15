@@ -369,7 +369,7 @@ export function downloadTextFile(
   mime = 'text/plain',
 ): void {
   if (typeof document === 'undefined') {
-    console.warn(`[AleoPay] downloadTextFile 仅支持浏览器环境（跳过：${filename}）`)
+    console.warn(`[KethyrPay] downloadTextFile 仅支持浏览器环境（跳过：${filename}）`)
     return
   }
   const blob = new Blob([content], { type: `${mime};charset=utf-8` })

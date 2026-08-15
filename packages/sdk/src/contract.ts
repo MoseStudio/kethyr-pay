@@ -1,7 +1,7 @@
 /**
  * 合约相关编码 / 解析 helpers。
  *
- * 从 POC `frontend/aleopay-demo/src/lib/contract.ts` 移植，
+ * 从 POC `frontend/demo/src/lib/contract.ts` 移植，
  * 剔除浏览器专属（import.meta.env / VITE_*）与 React 依赖，保留纯函数部分。
  * ALEO-MVP-007 / 008 的 createPayment / verifyPayment 依赖这些 helper。
  */

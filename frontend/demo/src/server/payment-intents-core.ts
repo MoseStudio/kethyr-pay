@@ -1,7 +1,7 @@
 /**
  * Server-only SDK 纯函数镜像（ALEO-MVP-012）。
  *
- * 为什么需要这份镜像，而不是直接 `import { createPayment } from '@aleopay/sdk'`：
+ * 为什么需要这份镜像，而不是直接 `import { createPayment } from '@kethyrpay/sdk'`：
  * - SDK 包（v0.1.0）的公共入口 `index.ts` 会 value-import `./aleo.js`，
  *   而 `aleo.js` 顶部 `import { Account, ... } from '@provablehq/sdk/testnet.js'`
  *   会初始化 WASM；SDK 的 package.json exports 只暴露 `.`（无深路径子导出），
@@ -10,7 +10,7 @@
  *   validateMerchant / createPayInvoiceTransaction / DEFAULT_EXPIRES_IN_MS /
  *   DEFAULT_PAYMENT_BASE_URL）按 SDK 同款实现镜像到前端 server 侧，
  *   语义与 SDK 完全一致（金额规范化、地址校验、pay_invoice 交易参数、30 分钟默认过期）。
- * - 数据结构仍以 SDK 类型（PaymentIntent）为准：类型由 `@aleopay/sdk` 导入（纯类型，
+ * - 数据结构仍以 SDK 类型（PaymentIntent）为准：类型由 `@kethyrpay/sdk` 导入（纯类型，
  *   不触 WASM），运行时构造逻辑由本文件提供。
  *
  * 同步点：SDK 升级 createPayment 构造逻辑时，需同步更新 `createPaymentIntentCore`
@@ -26,7 +26,7 @@ export const PROGRAM_ID = 'pay_private_v2.aleo'
 export const DEFAULT_FEE = 100_000
 
 /** 默认支付链接域名（Checkout 落地页前缀，与 SDK DEFAULT_PAYMENT_BASE_URL 一致） */
-export const DEFAULT_PAYMENT_BASE_URL = 'https://pay.aleopay.example'
+export const DEFAULT_PAYMENT_BASE_URL = 'https://pay.kethyrpay.example'
 
 /** 发票默认过期时长（30 分钟，与 SDK DEFAULT_EXPIRES_IN_MS 一致） */
 export const DEFAULT_EXPIRES_IN_MS = 30 * 60 * 1000

@@ -1,4 +1,4 @@
-# @aleopay/sdk 独立包（不在仓库 workspace 中），pnpm 11 将本目录视为项目根。
+# @kethyrpay/sdk 独立包（不在仓库 workspace 中），pnpm 11 将本目录视为项目根。
 # pnpm v10+ 的 onlyBuiltDependencies 配置迁移到了 pnpm-workspace.yaml。
 allowBuilds:
   '@swc/core': true

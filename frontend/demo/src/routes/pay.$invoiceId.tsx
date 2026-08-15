@@ -25,7 +25,7 @@ import {
   useMatches,
   useNavigate,
 } from '@tanstack/react-router'
-import type { PaymentIntent } from '@aleopay/sdk'
+import type { PaymentIntent } from '@kethyrpay/sdk'
 
 import { RequireWallet } from '@/components/RequireWallet.tsx'
 import { WalletStatus } from '@/components/WalletStatus.tsx'

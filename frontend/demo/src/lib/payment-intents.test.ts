@@ -87,14 +87,14 @@ describe('buildDemoPaymentIntent', () => {
       invoiceId: 'inv_demo_abcd1234',
       amount: '1.5',
       merchant: MERCHANT,
-      paymentBaseUrl: 'https://pay.aleopay.example',
+      paymentBaseUrl: 'https://pay.kethyrpay.example',
     })
 
     expect(intent.invoice_id).toBe('inv_demo_abcd1234')
     expect(intent.amount).toBe('1.500000')
     expect(intent.merchant).toBe(MERCHANT)
     expect(intent.expires_at).toBeDefined()
-    expect(intent.payment_url).toBe('https://pay.aleopay.example/pay/inv_demo_abcd1234')
+    expect(intent.payment_url).toBe('https://pay.kethyrpay.example/pay/inv_demo_abcd1234')
     expect(intent.transaction).toMatchObject({
       program: 'pay_private_v2.aleo',
       function: 'pay_invoice',

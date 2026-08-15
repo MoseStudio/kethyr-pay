@@ -3,7 +3,7 @@
  *
  * 架构灵感来自 POC 的 `WalletProviders` / `AleoWalletContext`（useAleoWallet），
  * 但 SDK 核心不依赖 React：这里只定义纯接口 + 工厂函数，React 集成由使用方
- * （如未来的 @aleopay/react）基于本抽象实现。
+ * （如未来的 @kethyrpay/react）基于本抽象实现。
  *
  * 接口对齐 Provable wallet adaptor 的能力面：
  * connect / disconnect / signTransaction / requestRecords / publicKey / connected。
@@ -47,7 +47,7 @@ export interface WalletAdapter {
 export async function createShieldAdapter(): Promise<WalletAdapter> {
   if (typeof window === 'undefined') {
     throw new Error(
-      '[AleoPay] createShieldAdapter() 仅支持浏览器环境（client-only）：' +
+      '[KethyrPay] createShieldAdapter() 仅支持浏览器环境（client-only）：' +
         'Shield Wallet 适配器依赖 window.shield 注入，请在客户端调用。',
     )
   }
@@ -121,7 +121,7 @@ export function createMemoryWalletAdapter(
     },
     signTransaction: async (transaction: TransactionOptions): Promise<string> => {
       if (!connected) {
-        throw new Error('[AleoPay] Memory Wallet 未连接，请先调用 connect()')
+        throw new Error('[KethyrPay] Memory Wallet 未连接，请先调用 connect()')
       }
       // 模拟交易 ID：基于 program/function 的确定性哈希（仅占位，不可用于链上广播）
       const seed = `${transaction.program}:${transaction.function}:${(transaction.inputs ?? []).join(',')}`
@@ -134,7 +134,7 @@ export function createMemoryWalletAdapter(
     },
     requestRecords: async (): Promise<unknown[]> => {
       if (!connected) {
-        throw new Error('[AleoPay] Memory Wallet 未连接，请先调用 connect()')
+        throw new Error('[KethyrPay] Memory Wallet 未连接，请先调用 connect()')
       }
       return []
     },

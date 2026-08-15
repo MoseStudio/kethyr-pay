@@ -1,4 +1,4 @@
-// AleoPay pay_private.aleo
+// KethyrPay pay_private.aleo
 // 单次隐私收单合约（黑客松 Demo 主路径）
 //
 // 设计要点：

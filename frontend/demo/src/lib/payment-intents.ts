@@ -25,7 +25,7 @@ import {
   normalizeAmount,
   type PaymentIntent,
   type CreatePaymentParams,
-} from '@aleopay/sdk'
+} from '@kethyrpay/sdk'
 
 /** 后端发票 API 的 base path（TanStack Start API 路由，012 并行实现） */
 export const PAYMENT_INTENTS_API_BASE = '/api/payment-intents'

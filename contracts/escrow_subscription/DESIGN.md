@@ -1,4 +1,4 @@
-# AleoPay Escrow Subscription Design
+# KethyrPay Escrow Subscription Design
 
 ## Overview
 

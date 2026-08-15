@@ -33,21 +33,21 @@ const defaultStore: InMemoryPaymentIntentStore = new InMemoryPaymentIntentStore(
 
 declare global {
   // eslint-disable-next-line no-var
-  var __aleopay_pi_store__: InMemoryPaymentIntentStore | undefined
+  var __kethyrpay_pi_store__: InMemoryPaymentIntentStore | undefined
 }
 
 /** 注入点：测试/高级用法可替换 store（见 tests/payment-intents-api.test.ts） */
 export function setPaymentIntentStore(next: InMemoryPaymentIntentStore): void {
-  globalThis.__aleopay_pi_store__ = next
+  globalThis.__kethyrpay_pi_store__ = next
 }
 
 /** 恢复默认 store（测试用） */
 export function resetPaymentIntentStore(): void {
-  globalThis.__aleopay_pi_store__ = defaultStore
+  globalThis.__kethyrpay_pi_store__ = defaultStore
 }
 
 function getStore(): InMemoryPaymentIntentStore {
-  return globalThis.__aleopay_pi_store__ ?? defaultStore
+  return globalThis.__kethyrpay_pi_store__ ?? defaultStore
 }
 
 /** 序列化辅助：避免返回内部可变引用 */

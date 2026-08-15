@@ -2,7 +2,7 @@
 
 ## 背景
 
-AleoPay POC 使用 `@provablehq/sdk` 在浏览器端生成零知识证明。该 SDK 的 WASM Prover 依赖 `SharedArrayBuffer` 实现多线程加速，而 `SharedArrayBuffer` 要求页面必须启用以下两个安全 Headers：
+KethyrPay POC 使用 `@provablehq/sdk` 在浏览器端生成零知识证明。该 SDK 的 WASM Prover 依赖 `SharedArrayBuffer` 实现多线程加速，而 `SharedArrayBuffer` 要求页面必须启用以下两个安全 Headers：
 
 - `Cross-Origin-Opener-Policy: same-origin`
 - `Cross-Origin-Embedder-Policy: require-corp`

@@ -1,5 +1,5 @@
 /**
- * AleoPay SDK 公共类型定义。
+ * KethyrPay SDK 公共类型定义。
  *
  * `PaymentIntent` 与 `PaymentStatus` 是 ALEO-MVP-007（createPayment）与
  * ALEO-MVP-008（verifyPayment）的契约类型；本 issue（006）先定义类型与占位签名，

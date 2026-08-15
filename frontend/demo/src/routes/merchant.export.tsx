@@ -116,11 +116,11 @@ function MerchantExport() {
   const summary = useMemo(() => summarizePayments(filtered, 500), [filtered])
   const rows = useMemo(() => toStatementRows(filtered), [filtered])
 
-  /** 导出文件名：aleopay-statement-YYYYMMDD-HHmm.ext */
+  /** 导出文件名：kethyrpay-statement-YYYYMMDD-HHmm.ext */
   const exportBase = useMemo(() => {
     const d = new Date()
     const pad = (n: number): string => String(n).padStart(2, '0')
-    return `aleopay-statement-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`
+    return `kethyrpay-statement-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`
   }, [])
 
   const handleExportCsv = () => {

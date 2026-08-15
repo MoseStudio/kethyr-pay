@@ -1,5 +1,5 @@
 /**
- * Performance tracking utility for AleoPay POC.
+ * Performance tracking utility for KethyrPay POC.
  *
  * Measures proof generation, transaction broadcast, and confirmation timings
  * across different devices and browsers.
@@ -124,7 +124,7 @@ export class PerformanceTracker {
   /**
    * Download the report as a JSON file in the browser.
    */
-  download(filename = `aleopay-perf-${this.sessionId}.json`): void {
+  download(filename = `kethyrpay-perf-${this.sessionId}.json`): void {
     if (typeof document === 'undefined') {
       console.warn('[PerformanceTracker] download() is only available in the browser')
       return

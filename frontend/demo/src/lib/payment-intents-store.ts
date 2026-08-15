@@ -14,7 +14,7 @@
  *   client 侧请用 `payment-intents.ts`（仅类型与 API 客户端）。
  */
 
-import type { PaymentIntent, CreatePaymentParams } from '@aleopay/sdk'
+import type { PaymentIntent, CreatePaymentParams } from '@kethyrpay/sdk'
 import {
   DEFAULT_EXPIRES_IN_MS,
   DEFAULT_PAYMENT_BASE_URL,
@@ -188,7 +188,7 @@ export class InMemoryPaymentIntentStore implements PaymentIntentStore {
 
 /**
  * 复用 SDK createPayment 的构造逻辑构造 PaymentIntent（server 端避免 WASM）。
- * 字段/语义与 SDK `AleoPay.createPayment` 完全一致：
+ * 字段/语义与 SDK `KethyrPay.createPayment` 完全一致：
  * 金额规范化、商家地址校验、invoice_id、expires_at、payment_url、pay_invoice 交易参数。
  */
 export function createPaymentIntentCore(params: {

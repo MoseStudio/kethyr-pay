@@ -13,7 +13,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
-import { AleoPay, type PaymentStatus } from '@aleopay/sdk'
+import { KethyrPay, type PaymentStatus } from '@kethyrpay/sdk'
 
 import { WalletStatus } from '@/components/WalletStatus.tsx'
 import { parseStatusSearch, pollProgress, sanitizeHttpUrl } from '@/lib/checkout.ts'
@@ -79,11 +79,11 @@ function PaymentStatusPage() {
     setElapsedMs(0)
 
     const rpcEndpoint = resolveRpcEndpoint(search.rpc)
-    // verifyPayment 是 AleoPay 实例方法：skipWasmInit + memory 钱包避免浏览器依赖，
+    // verifyPayment 是 KethyrPay 实例方法：skipWasmInit + memory 钱包避免浏览器依赖，
     // verifyPayment 本身不触达 WASM / 钱包，仅做 RPC 轮询。
-    void AleoPay.create({ skipWasmInit: true })
-      .then((aleoPay) =>
-        aleoPay.verifyPayment(invoiceId, {
+    void KethyrPay.create({ skipWasmInit: true })
+      .then((kethyrPay) =>
+        kethyrPay.verifyPayment(invoiceId, {
           timeoutMs: DEFAULT_TIMEOUT_MS,
           intervalMs: DEFAULT_INTERVAL_MS,
           ...(rpcEndpoint ? { rpcEndpoint } : {}),

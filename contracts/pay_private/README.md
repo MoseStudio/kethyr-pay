@@ -1,6 +1,6 @@
 # pay_private.aleo
 
-AleoPay 单次隐私收单合约（黑客松 Demo 主路径，ALEO-MVP-002）。
+KethyrPay 单次隐私收单合约（黑客松 Demo 主路径，ALEO-MVP-002）。
 
 ## 函数
 
