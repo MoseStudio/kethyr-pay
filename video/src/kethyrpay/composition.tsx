@@ -11,7 +11,7 @@ import { TIMING } from "./timings";
 
 export const Kethyrpay: React.FC = () => (
   <AbsoluteFill style={{ background: "#1a1410" }}>
-    <Background src="background-3.jpg" />
+    <Background />
     <Sequence
       durationInFrames={TIMING.intro.duration}
       from={TIMING.intro.from}

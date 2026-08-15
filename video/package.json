@@ -10,6 +10,7 @@
     "types": "tsc"
   },
   "dependencies": {
+    "@paper-design/shaders-react": "^0.0.80",
     "@remotion/cli": "4.0.501",
     "@remotion/google-fonts": "4.0.501",
     "@remotion/sfx": "4.0.484",
