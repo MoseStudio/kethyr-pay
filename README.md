@@ -2,6 +2,12 @@
 
 > **Aleo x OpenBuild 亚太黑客松 · PAY 隐私支付赛道**
 
+<div align="center">
+
+**[简体中文](README.md) · [English](README.en.md)**
+
+</div>
+
 ## 宣传视频
 
 <video src="https://github.com/MoseStudio/kethyr-pay/raw/main/video/out/Kethyrpay.mp4" controls width="100%" poster="https://github.com/MoseStudio/kethyr-pay/raw/main/video/out/poster.jpg"></video>
