@@ -4,9 +4,9 @@
 
 ## 宣传视频
 
-<video src="video/out/Kethyrpay.mp4" controls width="100%" poster="video/out/poster.jpg"></video>
+<video src="https://github.com/MoseStudio/kethyr-pay/raw/main/video/out/Kethyrpay.mp4" controls width="100%" poster="https://github.com/MoseStudio/kethyr-pay/raw/main/video/out/poster.jpg"></video>
 
-> 完整演示：浏览器端 ZK 证明 → 真实链上转账 → 隐私收款记录 → View Key 合规导出。
+[![KethyrPay 宣传视频](https://github.com/MoseStudio/kethyr-pay/raw/main/video/out/poster.jpg)](https://github.com/MoseStudio/kethyr-pay/blob/main/video/out/Kethyrpay.mp4)
 
 ---
 
