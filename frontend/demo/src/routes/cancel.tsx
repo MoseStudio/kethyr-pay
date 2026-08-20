@@ -193,7 +193,7 @@ function Cancel() {
               <p className="mt-1">
                 Refund amount:{' '}
                 <span className="font-mono font-semibold">{result.refundAmount}</span>{' '}
-                credits
+                ALEO
               </p>
               <p className="mt-2 break-all font-mono text-sm">{result.txId}</p>
             </div>

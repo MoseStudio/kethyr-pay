@@ -2,7 +2,7 @@
  * /merchant/export — View Key 账期导出（ALEO-MVP-016，Request Finance 兼容）。
  *
  * 商家连接钱包后：
- * - 收集数据源：发票系统列表 API + 钱包 requestRecords('pay_private.aleo')
+ * - 收集数据源：发票系统列表 API + 钱包 requestRecords('pay_private_v3.aleo')
  * - 按账期（最近 7 / 30 天 / 全部）过滤收款明细
  * - 一键导出 CSV / JSON 账单（含 Sender Ciphertext 合规披露字段）
  * - View Key 手动输入兜底：钱包适配器不导出 View Key 字符串时，
@@ -11,9 +11,10 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import { Wallet } from 'lucide-react'
 
+import { MerchantTopbar } from '@/components/merchant/MerchantTopbar.tsx'
 import { ConnectWalletButton } from '@/components/ConnectWalletButton.tsx'
-import { WalletStatus } from '@/components/WalletStatus.tsx'
 import { useAleoWallet } from '@/hooks/useAleoWallet.ts'
 import { listPaymentIntents } from '@/server/payment-intents-api.ts'
 import type { PaymentIntentRecord } from '@/lib/payment-intents.ts'
@@ -61,12 +62,12 @@ function MerchantExport() {
     const { intents } = (await res.json()) as { intents: PaymentIntentRecord[] }
     let onchain: MerchantPaymentEntry[] = []
     try {
-      const records = (await requestRecords('pay_private_v2.aleo', true)) ?? []
+      const records = (await requestRecords('pay_private_v3.aleo', true)) ?? []
       onchain = extractMerchantPayments(records, merchant)
     } catch {
       onchain = []
     }
-    // 合并两通道：链上记录（已支付）覆盖发票系统的 pending 条目
+    // 合并两通道：链上已支付保留发票创建时间，状态/金额/sender 覆盖
     const byId = new Map<string, MerchantPaymentEntry>()
     for (const intent of intents) {
       byId.set(intent.invoice_id, {
@@ -78,7 +79,19 @@ function MerchantExport() {
       })
     }
     for (const entry of onchain) {
-      byId.set(entry.invoice_id, entry)
+      const existing = byId.get(entry.invoice_id)
+      if (existing) {
+        byId.set(entry.invoice_id, {
+          ...existing,
+          amount: entry.amount,
+          status: entry.status,
+          sender: entry.sender,
+          sender_ciphertext: entry.sender_ciphertext,
+          source: 'onchain',
+        })
+      } else {
+        byId.set(entry.invoice_id, entry)
+      }
     }
     return [...byId.values()].sort(
       (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt),
@@ -153,52 +166,64 @@ function MerchantExport() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col gap-6 p-8">
-      <div className="flex w-full max-w-4xl items-center justify-between self-center">
-        <div>
-          <h1 className="text-4xl font-bold text-gray-900">View Key 账期导出</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            商家后台 · 一键导出收款账单（Request Finance 兼容格式）
-          </p>
-        </div>
-        <WalletStatus />
-      </div>
+    <>
+      <MerchantTopbar
+        left={
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-zinc-900 md:text-3xl dark:text-zinc-100">
+              View Key 账期导出
+            </h1>
+            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              商家后台 · 一键导出收款账单（Request Finance 兼容格式）
+            </p>
+          </div>
+        }
+      />
 
-      <div className="flex w-full max-w-4xl flex-col gap-4 self-center">
+      <div className="flex flex-col gap-4">
         {!loaded && (
-          <div className="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center text-gray-600 shadow-sm">
+          <div className="rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 p-8 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900/40 dark:text-zinc-400">
             钱包适配器加载中…
           </div>
         )}
 
         {loaded && !connected && (
-          <div className="flex flex-col items-center gap-6 rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center shadow-sm">
-            <h2 className="text-2xl font-semibold text-gray-900">连接钱包以导出账期</h2>
-            <p className="max-w-md text-gray-600">
+          <div className="space-y-4 rounded-2xl border border-zinc-200/60 bg-zinc-50 p-8 text-center dark:border-zinc-800/60 dark:bg-zinc-900/60">
+            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/10 text-blue-600 dark:text-sky-400">
+              <Wallet className="h-5 w-5" aria-hidden />
+            </div>
+            <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+              连接钱包以导出账期
+            </h2>
+            <p className="mx-auto max-w-md text-xs text-zinc-500 dark:text-zinc-400">
               您的钱包地址即商家身份。账单中的收款明细（含 Sender Ciphertext
               合规披露字段）来自您持有 View Key 的解密记录。
             </p>
-            <ConnectWalletButton />
+            <div className="flex justify-center">
+              <ConnectWalletButton />
+            </div>
           </div>
         )}
 
         {connected && (
           <>
             {/* 账期选择 + 导出按钮 */}
-            <div className="rounded-xl bg-white p-6 shadow-sm">
+            <div className="space-y-4 rounded-2xl border border-zinc-200/60 bg-zinc-50 p-6 dark:border-zinc-800/60 dark:bg-zinc-900/60">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex flex-col gap-2">
-                  <span className="text-sm font-medium text-gray-700">账期</span>
+                  <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                    账期
+                  </span>
                   <div className="flex gap-2">
                     {PERIODS.map((p) => (
                       <button
                         key={p.days}
                         type="button"
                         onClick={() => setPeriodDays(p.days)}
-                        className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                        className={`rounded-xl border px-3 py-1.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 ${
                           periodDays === p.days
-                            ? 'bg-indigo-600 text-white'
-                            : 'border border-gray-300 text-gray-600 hover:bg-gray-50'
+                            ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900'
+                            : 'border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-[#121214] dark:text-zinc-200 dark:hover:bg-zinc-900'
                         }`}
                       >
                         {p.label}
@@ -212,7 +237,7 @@ function MerchantExport() {
                     type="button"
                     onClick={handleExportCsv}
                     disabled={rows.length === 0}
-                    className="rounded-lg bg-emerald-600 px-5 py-2.5 font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-xs font-semibold text-zinc-900 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-800 dark:bg-[#121214] dark:text-zinc-100 dark:hover:bg-zinc-900"
                   >
                     导出 CSV
                   </button>
@@ -220,7 +245,7 @@ function MerchantExport() {
                     type="button"
                     onClick={handleExportJson}
                     disabled={rows.length === 0}
-                    className="rounded-lg bg-sky-600 px-5 py-2.5 font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     导出 JSON
                   </button>
@@ -228,44 +253,51 @@ function MerchantExport() {
               </div>
 
               {loading && (
-                <p className="mt-4 flex items-center gap-2 text-sm text-gray-500">
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+                <p className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+                  <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
                   正在收集收款明细…
                 </p>
               )}
               {error && (
-                <p className="mt-4 text-sm text-red-600">
+                <p className="text-xs text-red-600 dark:text-red-400">
                   加载失败：{error}（仍可导出当前已加载数据）
                 </p>
               )}
 
               {/* 账期汇总 */}
-              <div className="mt-4 rounded-lg bg-gray-50 p-4">
-                <p className="text-sm text-gray-600">
-                  账期收款 <span className="font-bold text-gray-900">{rows.length}</span> 笔
-                  · 累计{' '}
-                  <span className="font-bold text-gray-900">
+              <div className="rounded-xl border border-zinc-200/60 bg-white p-3 dark:border-zinc-800/60 dark:bg-zinc-950/40">
+                <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                  账期收款{' '}
+                  <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                    {rows.length}
+                  </span>{' '}
+                  笔 · 累计{' '}
+                  <span className="font-semibold text-zinc-900 dark:text-zinc-100">
                     {formatCredits(summary.totalAmount)}
                   </span>{' '}
-                  credits
+                  ALEO
                 </p>
-                <p className="mt-1 font-mono text-xs text-gray-400 break-all">{merchant}</p>
+                <p className="mt-1 break-all font-mono text-[11px] text-zinc-400 dark:text-zinc-500">
+                  {merchant}
+                </p>
               </div>
             </div>
 
             {/* View Key 输入（合规披露） */}
-            <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-6 shadow-sm">
+            <div className="space-y-3 rounded-2xl border border-zinc-200/60 bg-zinc-50 p-6 dark:border-zinc-800/60 dark:bg-zinc-900/60">
               <div className="flex items-center justify-between">
-                <h2 className="font-semibold text-indigo-900">View Key 解密确认</h2>
+                <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                  View Key 解密确认
+                </h2>
                 <button
                   type="button"
                   onClick={() => void handleTryWalletExport()}
-                  className="rounded-lg border border-indigo-300 px-3 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
+                  className="rounded-lg border border-zinc-200 bg-white px-3 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-800 dark:bg-[#121214] dark:text-zinc-200 dark:hover:bg-zinc-900"
                 >
                   尝试从钱包导出
                 </button>
               </div>
-              <p className="mt-2 text-sm text-indigo-800">
+              <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
                 账单明文由持有 View Key 的钱包解密生成。Shield 等钱包不暴露 View Key
                 字符串，也可手动粘贴以在导出元数据中标注「View Key 已确认」（仅记录指纹，
                 完整密钥不会存储或写入导出文件）。
@@ -275,10 +307,10 @@ function MerchantExport() {
                 value={viewKey}
                 onChange={(e) => handleViewKeyChange(e.target.value)}
                 placeholder="AViewKey1..."
-                className="mt-3 w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 font-mono text-sm text-gray-800 placeholder-gray-400 focus:border-indigo-400 focus:outline-none"
+                className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 font-mono text-sm text-zinc-900 placeholder-zinc-400 transition focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-zinc-100 dark:placeholder-zinc-600"
               />
               {viewKeyFingerprint && (
-                <p className="mt-2 text-xs font-medium text-emerald-700">
+                <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
                   ✓ View Key 已确认（指纹 …{viewKeyFingerprint}）—— 导出账单可标注为
                   view-key-verified
                 </p>
@@ -286,48 +318,55 @@ function MerchantExport() {
             </div>
 
             {/* 账单预览 */}
-            <div className="overflow-hidden rounded-xl bg-white shadow-sm">
-              <h2 className="px-6 py-4 text-lg font-semibold text-gray-900">
+            <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-transparent">
+              <h2 className="border-b border-zinc-200 px-6 py-4 text-sm font-semibold text-zinc-900 dark:border-zinc-800 dark:text-zinc-100">
                 账单预览（{rows.length} 笔）
               </h2>
               {rows.length === 0 ? (
-                <div className="px-6 pb-8 text-center text-gray-500">
+                <div className="px-6 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
                   当前账期内暂无收款记录。
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
-                    <thead className="border-b border-gray-100 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+                    <thead className="border-b border-zinc-200 bg-zinc-50 text-xs font-medium text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-400">
                       <tr>
-                        <th className="px-6 py-3 font-medium">日期</th>
-                        <th className="px-6 py-3 font-medium">发票号</th>
-                        <th className="px-6 py-3 font-medium">金额</th>
-                        <th className="px-6 py-3 font-medium">状态</th>
-                        <th className="px-6 py-3 font-medium">付款人</th>
-                        <th className="px-6 py-3 font-medium">Sender Ciphertext</th>
+                        <th className="px-6 py-3">日期</th>
+                        <th className="px-6 py-3">发票号</th>
+                        <th className="px-6 py-3">金额</th>
+                        <th className="px-6 py-3">状态</th>
+                        <th className="px-6 py-3">付款人</th>
+                        <th className="px-6 py-3">Sender Ciphertext</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-50">
+                    <tbody>
                       {rows.map((row) => (
-                        <tr key={row.invoice_id} className="hover:bg-gray-50">
-                          <td className="px-6 py-3 text-gray-600">{row.date}</td>
-                          <td className="px-6 py-3 font-mono text-gray-800">
+                        <tr
+                          key={row.invoice_id}
+                          className="border-b border-zinc-100 last:border-b-0 hover:bg-zinc-50 dark:border-zinc-900 dark:hover:bg-zinc-900/40"
+                        >
+                          <td className="px-6 py-3 text-zinc-600 dark:text-zinc-400">
+                            {row.date}
+                          </td>
+                          <td className="px-6 py-3 font-mono text-xs text-zinc-700 dark:text-zinc-300">
                             {row.invoice_id}
                           </td>
-                          <td className="px-6 py-3 font-semibold text-gray-900">
-                            {formatCredits(row.amount_credits)}
+                          <td className="px-6 py-3 font-semibold text-zinc-900 dark:text-zinc-100">
+                            {formatCredits(row.amount_credits)} ALEO
                           </td>
-                          <td className="px-6 py-3 text-gray-600">
+                          <td className="px-6 py-3 text-zinc-600 dark:text-zinc-400">
                             {row.status === 'paid'
                               ? '已支付'
                               : row.status === 'pending'
                                 ? '待支付'
                                 : '已过期'}
                           </td>
-                          <td className="px-6 py-3 font-mono text-xs text-gray-500">
-                            {row.sender ? `${row.sender.slice(0, 10)}…${row.sender.slice(-8)}` : '—'}
+                          <td className="px-6 py-3 font-mono text-xs text-zinc-500 dark:text-zinc-400">
+                            {row.sender
+                              ? `${row.sender.slice(0, 10)}…${row.sender.slice(-8)}`
+                              : '—'}
                           </td>
-                          <td className="px-6 py-3 font-mono text-xs text-gray-400 break-all">
+                          <td className="break-all px-6 py-3 font-mono text-xs text-zinc-400 dark:text-zinc-500">
                             {row.sender_ciphertext || '—'}
                           </td>
                         </tr>
@@ -340,7 +379,7 @@ function MerchantExport() {
           </>
         )}
       </div>
-    </main>
+    </>
   )
 }
 
