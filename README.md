@@ -51,6 +51,8 @@ KethyrPay 是一个**开发者优先（Developer-first）、默认隐私、兼�
 → 链上确认 (verifyPayment) → 商家后台收款明细 → View Key 账期导出
 ```
 
+[![Demo 视频](https://github.com/MoseStudio/kethyr-pay/raw/main/video/out/poster.jpg)](https://github.com/user-attachments/assets/5431aa34-fab3-4fbc-86f3-bbd17d61bfb6)
+
 > **安全设计**：v3 采用**单笔交易原子结算**——`transfer_private` 转移 ALEO、消费 InvoiceRecord、产出双 Receipt 在同一笔交易内顺序执行；任一步失败整笔 revert，**杜绝任何中间态**。
 
 ## 核心亮点
