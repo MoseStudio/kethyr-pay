@@ -2,8 +2,9 @@
  * KethyrPay SDK 公共类型定义。
  *
  * `PaymentIntent` 与 `PaymentStatus` 是 ALEO-MVP-007（createPayment）与
- * ALEO-MVP-008（verifyPayment）的契约类型；本 issue（006）先定义类型与占位签名，
- * 后续 wave 直接填充实现。
+ * ALEO-MVP-008（verifyPayment）的契约类型。contract 升级到 v3 后，
+ * `PaymentIntent.transaction` 携带的是 v3 `pay_invoice` 4-input 原子结算
+ * 交易参数（invoice record + amount + sender_ciphertext + credits token）。
  */
 
 /** 支付意图：由商家侧 createPayment() 生成，可渲染为支付链接供付款人打开 */
@@ -18,7 +19,7 @@ export interface PaymentIntent {
   expires_at: string
   /** 可直接打开的支付链接（Hosted Checkout 落地页，如 /pay/:invoiceId） */
   payment_url: string
-  /** pay_private.aleo `pay_invoice` 交易参数（可直接交给钱包 signTransaction） */
+  /** pay_private_v3.aleo `pay_invoice` 交易参数（v3 4-input 原子结算：invoice + amount + sender_ciphertext + token；可直接交给钱包 signTransaction） */
   transaction: import('@provablehq/aleo-types').TransactionOptions
 }
 

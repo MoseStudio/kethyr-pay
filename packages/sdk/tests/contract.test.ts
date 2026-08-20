@@ -11,10 +11,12 @@ import {
   encodeU32,
   stripVisibilitySuffix,
   parsePaymentRecord,
+  parseMerchantReceipt,
   cleanRecordInput,
   createTransactionOptions,
   createPayInvoiceTransaction,
   createInvoiceTransaction,
+  mintInvoiceToPayerTransaction,
   transferInvoiceTransaction,
 } from '../src/contract.js'
 
@@ -96,6 +98,114 @@ describe('stripVisibilitySuffix / cleanRecordInput', () => {
   })
 })
 
+describe('parseMerchantReceipt', () => {
+  const jsonReceipt = JSON.stringify({
+    owner: 'aleo1' + 'a'.repeat(58),
+    merchant: 'aleo1' + 'b'.repeat(58),
+    sender: 'aleo1' + 'c'.repeat(58),
+    sender_ciphertext: '123456789group.private',
+    amount: '500000u64.private',
+    invoice_id: '987654321field',
+  })
+
+  it('解析 JSON 记录并去除可见性后缀（v3 字段集）', () => {
+    const receipt = parseMerchantReceipt(jsonReceipt)
+    expect(receipt).not.toBeNull()
+    expect(receipt!.owner).toBe('aleo1' + 'a'.repeat(58))
+    expect(receipt!.merchant).toBe('aleo1' + 'b'.repeat(58))
+    expect(receipt!.sender).toBe('aleo1' + 'c'.repeat(58))
+    expect(receipt!.sender_ciphertext).toBe('123456789group')
+    expect(receipt!.amount).toBe('500000u64')
+    expect(receipt!.invoice_id).toBe('987654321field')
+  })
+
+  it('解析 Leo 记录字面量（v3 MerchantReceipt / PayerReceipt）', () => {
+    const leo = `{
+      owner: aleo1${'a'.repeat(58)}.private,
+      merchant: aleo1${'b'.repeat(58)}.private,
+      sender: aleo1${'c'.repeat(58)}.private,
+      sender_ciphertext: 987654321group.private,
+      amount: 1500000u64.private,
+      invoice_id: 123456789field.private
+    }`
+    const receipt = parseMerchantReceipt(leo)
+    expect(receipt).not.toBeNull()
+    expect(receipt!.owner).toBe('aleo1' + 'a'.repeat(58))
+    expect(receipt!.merchant).toBe('aleo1' + 'b'.repeat(58))
+    expect(receipt!.sender).toBe('aleo1' + 'c'.repeat(58))
+    expect(receipt!.sender_ciphertext).toBe('987654321group')
+    expect(receipt!.amount).toBe('1500000u64')
+    expect(receipt!.invoice_id).toBe('123456789field')
+  })
+
+  it('缺失 sender / sender_ciphertext 时也返回（合规披露字段可空）', () => {
+    const leo = `{
+      owner: aleo1${'a'.repeat(58)}.private,
+      merchant: aleo1${'b'.repeat(58)}.private,
+      amount: 1000000u64.private,
+      invoice_id: 42field.private
+    }`
+    const receipt = parseMerchantReceipt(leo)
+    expect(receipt).not.toBeNull()
+    expect(receipt!.sender).toBe('')
+    expect(receipt!.sender_ciphertext).toBe('')
+  })
+
+  it('解析 Shield OwnedRecord 形态（顶层 owner 是 commitment，不污染）', () => {
+    const sender = 'aleo1' + 'c'.repeat(58)
+    const recordPlaintext = `{
+      owner: aleo1${'a'.repeat(58)}.private,
+      merchant: aleo1${'b'.repeat(58)}.private,
+      sender: ${sender}.private,
+      sender_ciphertext: 555group.private,
+      amount: 2000000u64.private,
+      invoice_id: 888field.private,
+      _nonce: 1group.public
+    }`
+    const raw = {
+      owner: '5816678430409870700679217267518351456853540762943589178368590156379864613704field',
+      programName: 'pay_private_v3.aleo',
+      recordName: 'MerchantReceipt',
+      recordPlaintext,
+      recordView: {
+        fields: {
+          owner: `aleo1${'a'.repeat(58)}.private`,
+          merchant: `aleo1${'b'.repeat(58)}.private`,
+          sender: `${sender}.private`,
+          amount: '2000000u64.private',
+          invoice_id: '888field.private',
+        },
+      },
+    }
+    const parsed = parseMerchantReceipt(raw)
+    expect(parsed).not.toBeNull()
+    expect(parsed!.owner).toBe('aleo1' + 'a'.repeat(58))
+    expect(parsed!.merchant).toBe('aleo1' + 'b'.repeat(58))
+    expect(parsed!.sender).toBe(sender)
+    expect(parsed!.invoice_id).toBe('888field')
+  })
+
+  it('无法解析时返回 null（缺 owner / merchant / amount / invoice_id）', () => {
+    expect(parseMerchantReceipt('')).toBeNull()
+    expect(parseMerchantReceipt('garbage')).toBeNull()
+    expect(parseMerchantReceipt(null)).toBeNull()
+    expect(parseMerchantReceipt({ owner: 'aleo1' + 'a'.repeat(58) })).toBeNull()
+  })
+
+  it('PayerReceipt（同构字段）也可解析', () => {
+    const payerReceipt = `{
+      owner: aleo1${'c'.repeat(58)}.private,
+      merchant: aleo1${'b'.repeat(58)}.private,
+      sender: aleo1${'c'.repeat(58)}.private,
+      sender_ciphertext: 0group.private,
+      amount: 1500000u64.private,
+      invoice_id: 123field.private
+    }`
+    const parsed = parseMerchantReceipt(payerReceipt)
+    expect(parsed?.owner).toBe('aleo1' + 'c'.repeat(58))
+  })
+})
+
 describe('parsePaymentRecord', () => {
   const jsonRecord = JSON.stringify({
     owner: 'aleo1' + 'a'.repeat(58),
@@ -139,7 +249,7 @@ describe('createTransactionOptions', () => {
   it('使用默认 PROGRAM_ID / DEFAULT_FEE 构造选项', () => {
     const opts = createTransactionOptions('pay_invoice', ['1u64', 'aleo1xxx'])
     expect(opts.program).toBe(PROGRAM_ID)
-    expect(opts.program).toBe('pay_private_v2.aleo')
+    expect(opts.program).toBe('pay_private_v3.aleo')
     expect(opts.function).toBe('pay_invoice')
     expect(opts.inputs).toEqual(['1u64', 'aleo1xxx'])
     expect(opts.fee).toBe(DEFAULT_FEE)
@@ -159,7 +269,7 @@ describe('createTransactionOptions', () => {
     expect(opts.privateFee).toBe(true)
   })
 
-  it('createPayInvoiceTransaction：无 invoiceRecord 时传 invoiceId 数字', () => {
+  it('createPayInvoiceTransaction：无 invoiceRecord 时传 invoiceId 数字（3-input 占位）', () => {
     const opts = createPayInvoiceTransaction({
       invoiceId: '123456789',
       amount: '1.5',
@@ -169,7 +279,7 @@ describe('createTransactionOptions', () => {
     expect(opts.inputs).toEqual(['123456789', '1500000u64', '0group'])
   })
 
-  it('createPayInvoiceTransaction：带 invoiceRecord 时记录优先', () => {
+  it('createPayInvoiceTransaction：带 invoiceRecord 时构造 v3 4-input 原子结算', () => {
     const record =
       '{ owner: aleo1' + 'a'.repeat(58) + '.private, amount: 1500000u64.private }'
     const opts = createPayInvoiceTransaction({
@@ -178,7 +288,22 @@ describe('createTransactionOptions', () => {
       merchant: 'aleo1' + 'a'.repeat(58),
       invoiceRecord: record,
     })
-    expect(opts.inputs).toEqual([record, '1500000u64', '0group'])
+    expect(opts.inputs).toEqual([record, '1500000u64', '0group', '0field'])
+  })
+
+  it('createPayInvoiceTransaction：带 invoiceRecord + token 时 token 替代默认', () => {
+    const record =
+      '{ owner: aleo1' + 'a'.repeat(58) + '.private, amount: 1500000u64.private }'
+    const token = '{ owner: aleo1payer.private, balance: 1500000u64.private, _nonce: 1group.public }'
+    const opts = createPayInvoiceTransaction({
+      invoiceId: '123456789',
+      amount: '1.5',
+      merchant: 'aleo1' + 'a'.repeat(58),
+      invoiceRecord: record,
+      token,
+      senderCiphertext: '123456789group',
+    })
+    expect(opts.inputs).toEqual([record, '1500000u64', '123456789group', token])
   })
 })
 
@@ -210,6 +335,69 @@ describe('createInvoiceTransaction', () => {
     expect(() =>
       createInvoiceTransaction({ merchant: 'bad', amount: '1', invoiceId: '1' }),
     ).toThrow('Invalid Aleo address')
+  })
+})
+
+describe('mintInvoiceToPayerTransaction', () => {
+  const MERCHANT = 'aleo1' + 'a'.repeat(58)
+  const PAYEE = 'aleo1' + 'c'.repeat(58)
+
+  it('构造 mint_to_payer 交易（merchant, payee, amount, invoice_id field）', () => {
+    const opts = mintInvoiceToPayerTransaction({
+      merchant: MERCHANT,
+      payee: PAYEE,
+      amount: '1.5',
+      invoiceId: '123456789',
+    })
+    expect(opts.program).toBe(PROGRAM_ID)
+    expect(opts.function).toBe('mint_to_payer')
+    expect(opts.inputs).toEqual([MERCHANT, PAYEE, '1500000u64', '123456789field'])
+  })
+
+  it('支持自定义 fee / privateFee', () => {
+    const opts = mintInvoiceToPayerTransaction({
+      merchant: MERCHANT,
+      payee: PAYEE,
+      amount: '0.1',
+      invoiceId: '42',
+      fee: 200_000,
+      privateFee: true,
+    })
+    expect(opts.fee).toBe(200_000)
+    expect(opts.privateFee).toBe(true)
+  })
+
+  it('拒绝非法商家地址', () => {
+    expect(() =>
+      mintInvoiceToPayerTransaction({
+        merchant: 'bad',
+        payee: PAYEE,
+        amount: '1',
+        invoiceId: '1',
+      }),
+    ).toThrow('Invalid Aleo address')
+  })
+
+  it('拒绝非法付款人地址', () => {
+    expect(() =>
+      mintInvoiceToPayerTransaction({
+        merchant: MERCHANT,
+        payee: 'bad',
+        amount: '1',
+        invoiceId: '1',
+      }),
+    ).toThrow('Invalid Aleo address')
+  })
+
+  it('拒绝非法金额', () => {
+    expect(() =>
+      mintInvoiceToPayerTransaction({
+        merchant: MERCHANT,
+        payee: PAYEE,
+        amount: 'abc',
+        invoiceId: '1',
+      }),
+    ).toThrow('Invalid credit amount')
   })
 })
 

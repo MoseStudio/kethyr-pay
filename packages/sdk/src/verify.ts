@@ -141,7 +141,7 @@ export function isTransactionConfirmed(
   const transitions = extractTransitions(transaction)
   for (const transition of transitions) {
     const fn = transition.function ?? ''
-    const isPayInvoice = /pay_invoice/.test(fn) || /pay_private(_v2)?\.aleo/.test(fn)
+    const isPayInvoice = /pay_invoice/.test(fn) || /pay_private(_v[23])?\.aleo/.test(fn)
     if (!isPayInvoice) continue
 
     const fields = extractRecordFields(transition.inputs ?? [])

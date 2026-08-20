@@ -18,7 +18,7 @@ const PAYMENT_ID = 'inv_12345678'
 const PAYMENT_FIELD = paymentIdToField(PAYMENT_ID)
 const TX_ID = 'at1' + 'a'.repeat(61)
 
-/** 构造已确认的 pay_invoice 交易（含 InvoiceRecord 输入） */
+/** 构造已确认的 pay_invoice 交易（含 InvoiceRecord 输入，v3 4-input 原子结算） */
 function makeConfirmedTx(overrides: Partial<TransactionJSON> = {}): TransactionJSON {
   return {
     type: 'execute',
@@ -27,7 +27,7 @@ function makeConfirmedTx(overrides: Partial<TransactionJSON> = {}): TransactionJ
       transitions: [
         {
           id: 'tr1',
-          program: 'pay_private_v2.aleo',
+          program: 'pay_private_v3.aleo',
           function: 'pay_invoice',
           inputs: [
             {
@@ -38,6 +38,12 @@ function makeConfirmedTx(overrides: Partial<TransactionJSON> = {}): TransactionJ
             },
             { type: 'plaintext', id: 'in2', value: '1500000u64' },
             { type: 'plaintext', id: 'in3', value: '1group' },
+            {
+              type: 'record',
+              id: 'in4',
+              value:
+                '{ owner: aleo1bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.private, balance: 10000000u64.private, _nonce: 2group }',
+            },
           ],
         },
       ],

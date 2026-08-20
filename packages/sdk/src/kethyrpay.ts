@@ -197,9 +197,11 @@ export class KethyrPay {
   /**
    * 创建支付意图（ALEO-MVP-007）。
    *
-   * 校验金额与商家地址，生成 invoice_id 与过期时间，并构造 `pay_invoice`
-   * 交易参数（可通过 `intent.transaction` 直接交给钱包 signTransaction）。
-   */
+   * 校验金额与商家地址，生成 invoice_id 与过期时间，并构造 v3
+   * `pay_invoice` 交易参数（可通过 `intent.transaction` 直接交给钱包
+   * signTransaction；v3 原子结算：credits.aleo::transfer_private +
+   * 消费 InvoiceRecord + 双 Receipt 产出在单笔交易内完成，任一步失败整笔回滚）。
+     */
   async createPayment(params: CreatePaymentParams): Promise<PaymentIntent> {
     const amount = normalizeAmount(params.amount)
     const merchant = validateMerchant(params.merchant)

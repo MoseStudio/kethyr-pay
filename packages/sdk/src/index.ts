@@ -25,12 +25,16 @@ export {
   encodeU32,
   stripVisibilitySuffix,
   parsePaymentRecord,
+  parseMerchantReceipt,
   cleanRecordInput,
   createTransactionOptions,
   createPayInvoiceTransaction,
   createInvoiceTransaction,
+  mintInvoiceToPayerTransaction,
   transferInvoiceTransaction,
   type PaymentRecordPlaintext,
+  type MerchantReceiptPlaintext,
+  type PayerReceiptPlaintext,
 } from './contract.js'
 
 // 钱包适配器抽象（框架无关）

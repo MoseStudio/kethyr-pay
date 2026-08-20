@@ -33,7 +33,7 @@ function makeConfirmedTx(): TransactionJSON {
       transitions: [
         {
           id: 'tr1',
-          program: 'pay_private_v2.aleo',
+          program: 'pay_private_v3.aleo',
           function: 'pay_invoice',
           inputs: [
             {
@@ -44,6 +44,12 @@ function makeConfirmedTx(): TransactionJSON {
             },
             { type: 'plaintext', id: 'in2', value: '1500000u64' },
             { type: 'plaintext', id: 'in3', value: '1group' },
+            {
+              type: 'record',
+              id: 'in4',
+              value:
+                '{ owner: aleo1bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.private, balance: 10000000u64.private, _nonce: 2group }',
+            },
           ],
         },
       ],
@@ -110,7 +116,7 @@ describe('KethyrPay 主类', () => {
       `${DEFAULT_PAYMENT_BASE_URL}/pay/${intent.invoice_id}`,
     )
     // 交易参数可直接交给钱包
-    expect(intent.transaction.program).toBe('pay_private_v2.aleo')
+    expect(intent.transaction.program).toBe('pay_private_v3.aleo')
     expect(intent.transaction.function).toBe('pay_invoice')
     expect(intent.transaction.inputs).toContain(`${1.5 * 1_000_000}u64`)
   })
@@ -214,7 +220,7 @@ describe('KethyrPay 主类', () => {
       expires_at: new Date().toISOString(),
       payment_url: 'https://pay.kethyrpay.example/pay/inv_001',
       transaction: {
-        program: 'pay_private_v2.aleo',
+        program: 'pay_private_v3.aleo',
         function: 'pay_invoice',
         inputs: ['1', '1500000u64', '1group'],
       },
