@@ -46,46 +46,45 @@ Merchants integrate with a few lines of SDK code. Payers generate real ZK proofs
 ## Current Demo North Star (fully real, not a mock)
 
 ```
-Connect wallet → merchant mints invoice (create_invoice) → transfers to payer (transfer_invoice)
-→ payer transfers (credits.aleo::transfer_public, real fund movement)
-→ payer pays (pay_invoice, real ZK proof, invoice consumed only after transfer confirmed)
+Connect wallet → merchant mints invoice (mint_to_payer, owner = payer)
+→ payer prepares a private ALEO record (transfer_public_to_private) → pay (pay_invoice atomic: transfer_private + consume InvoiceRecord + dual receipts, single tx, fully atomic)
 → on-chain confirmation (verifyPayment) → merchant dashboard details → View Key statement export
 ```
 
-> **Security invariant**: the flow transfers credits first and waits for on-chain
-> confirmation (60s timeout), and only then signs `pay_invoice` to consume the
-> invoice — eliminating the "consume invoice without paying" exploit.
+> **Security invariant**: v3 is fully **atomic** — `transfer_private` + invoice consume + dual receipts execute in order within a single transaction; any failure reverts the whole tx, **eliminating any intermediate state**.
 
 ## Highlights
 
 | Feature | Description |
 |---------|-------------|
 | 🔒 Private checkout | On-chain PaymentRecord is ciphertext; amount/payer readable only via View Key |
-| 💸 Real fund flow | Payments include a `credits.aleo::transfer_public` transfer; wallet balances really move |
+| 💸 Real fund flow | Single `pay_invoice` with `credits.aleo::transfer_private`; wallet balances really move |
 | ⚖️ Compliance baseline | Sender Ciphertext commitment (a group element) is on-chain auditable; never touches a mixer |
 | 🧾 Replay protection | InvoiceRecord.serial_number = BHP256 hash; each invoice can be paid exactly once |
-| 📊 Merchant dashboard | Total collected + transaction details + RFC-4180 CSV / JSON statement export |
-| ⚡ Performance tracing | prove / broadcast / confirm timing exported end to end |
+| 📊 Merchant dashboard | Total collected + transaction details + RFC-4180 CSV / JSON statement export (ALEO) |
+| ⚡ Performance tracing | prove / broadcast / confirm timing exported end to end (toggleable) |
 
 ## Architecture
 
 ```
-contracts/pay_private/        Leo checkout contract pay_private_v2.aleo (deployed on Testnet)
+contracts/pay_private/        Leo checkout contract pay_private_v2.aleo (legacy, replaced by v3)
+contracts/pay_private_v3/     Leo checkout contract pay_private_v3.aleo (current Testnet deployment, atomic)
 contracts/escrow_subscription/ Leo private escrow subscription contract (POC: authorize / pull / cancel)
-packages/sdk/                 @kethyrpay/sdk: createPayment / verifyPayment / invoice mint & transfer
+packages/sdk/                 @kethyrpay/sdk: createPayment / verifyPayment / mint_to_payer
 frontend/demo/                TanStack Start + React 19: Checkout / Status / Merchant Dashboard
 ```
 
 - Smart contracts: **Leo v4.4.1** (snarkVM 4.9.0)
 - Proving: `@provablehq/sdk` browser WASM prover (client-side proving)
-- Wallet adapters: `@provablehq/aleo-wallet-adaptor-*` (Shield Wallet by default)
+- Wallet adapters: `@provablehq/aleo-wallet-adaptor-*` (Shield Wallet by default, auto-connect, declares pay_private_v3.aleo + credits.aleo)
 
 ## Run the Demo
 
 ### 1. Contracts (Leo 4.4.1)
 
 ```bash
-cd contracts/pay_private && leo build && leo test   # 8/8
+cd contracts/pay_private && leo build && leo test   # v2 legacy 8/8
+cd contracts/pay_private_v3 && leo build && leo test # v3 atomic
 ```
 
 ### 2. SDK
@@ -105,20 +104,21 @@ Configure the frontend `.env`:
 ```env
 VITE_USE_REAL_TRANSACTIONS=true
 VITE_RPC_ENDPOINT=https://api.explorer.provable.com/v1   # override when the default endpoint is unreachable
+VITE_ENABLE_PERFORMANCE_PANEL=false   # show bottom-right perf panel (debug only)
 ```
+
+CSRF middleware is enabled for server functions; see `src/start.ts`.
 
 ### Demo Walkthrough
 
 ```
-Merchant wallet → /merchant/invoice mint & transfer invoice → "Open payment page" to Checkout
-Payer wallet → Checkout pay (sign transfer_public first, confirm, then sign pay_invoice)
-Payer wallet → status page confirms success (amount + both tx IDs) → "Merchant dashboard" link
+Merchant wallet → /merchant/invoice mint & deliver (mint_to_payer single tx) → "Open payment page" to Checkout
+Payer wallet → Checkout pay (single atomic pay_invoice: private ALEO + InvoiceRecord + dual receipts)
+Payer wallet → status page confirms success (amount + tx ID) → "Merchant dashboard" link
 Merchant wallet → /merchant for collection details + /merchant/export for statements
 ```
 
-The browser needs the **Shield Wallet** extension on Testnet; the wallet must
-authorize both `pay_private_v2.aleo` and `credits.aleo` (declared in code —
-reconnect the wallet to apply).
+The browser needs the **Shield Wallet** extension on Testnet; the wallet must authorize both `pay_private_v3.aleo` and `credits.aleo` (declared in code — reconnect the wallet to apply).
 
 ## Roadmap
 
@@ -172,22 +172,24 @@ Optimize payment latency and device power draw; pursue global fiat compliance li
 ## Key Technical Decisions
 
 - **Proving strategy**: MVP firmly uses **client-side proving** (a few seconds slower, but minimal architecture and the highest security — keys never leave the device); Scaling phase adds **delegate proving** (Compute Key protects funds, better for mobile / weak networks).
-- **Payment flow (compat-first → evolving)**: payments are currently **two transactions** — a `transfer_public` transfer confirmed on-chain first, then `pay_invoice` consuming the invoice to produce a private payment record (`pay_private_v2.aleo` focuses on proving & bookkeeping; Leo can't yet atomically transfer). Future: **private transfers** (`transfer_private`, hiding the payment amount) → **atomic** (transfer + consume inside one transaction). Either way, the **"transfer first, confirm, then consume"** invariant always holds.
+- **Payment flow (v3 atomic)**: **Single `pay_invoice` is fully atomic** — `credits.aleo::transfer_private` + InvoiceRecord consume + dual receipts. V2 required two txs; v3 has eliminated the gap.
 - **Compliance baseline**: we never touch a mixer. Every transfer must carry a **Sender Ciphertext** so the recipient (and authorized regulators) can always learn the source of funds — the line KethyrPay won't cross to stay on the right side of regulators.
 
 ## Testnet Deployment
 
 | Field | Value |
 |-------|-------|
-| Program ID | `pay_private_v2.aleo` |
-| Deploy tx | `at1f6vzg6az4r2ztgxh5ctudhfcstdz42d2rgjzfuud60aut8lxeu8qldke5l` |
-| Explorer | https://explorer.provable.com/program/pay_private_v2.aleo |
-| v1 (legacy) | `pay_private.aleo` (no transfer_invoice, @noupgrade — can't be upgraded) |
+| Program ID | `pay_private_v3.aleo` (current) |
+| Deploy tx | `at1sq0xgyaqsx53k9eqkgexzu2njjpt66p4c0jzh566taqe6yj9nufqzre8wy` |
+| Explorer | https://explorer.provable.com/program/pay_private_v3.aleo |
+| Total fee | 10.849479 ALEO |
+| v1 (legacy) | `pay_private.aleo` (no transfer_invoice, @noupgrade) |
+| v2 (legacy) | `pay_private_v2.aleo` (single non-atomic payment, replaced by v3) |
 
 ## Docs
 
-- Checkout contract design: [`contracts/pay_private/DESIGN.md`](contracts/pay_private/DESIGN.md)
-- Checkout contract deployment: [`contracts/pay_private/DEPLOYMENT.md`](contracts/pay_private/DEPLOYMENT.md)
+- Checkout contract design: [`contracts/pay_private_v3/DESIGN.md`](contracts/pay_private_v3/DESIGN.md) (current) / [`contracts/pay_private/DESIGN.md`](contracts/pay_private/DESIGN.md) (legacy)
+- Checkout contract deployment: [`contracts/pay_private_v3/DEPLOYMENT.md`](contracts/pay_private_v3/DEPLOYMENT.md)
 - Escrow subscription design: [`contracts/escrow_subscription/DESIGN.md`](contracts/escrow_subscription/DESIGN.md)
 - Demo walkthrough: [`docs/DEMO_WALKTHROUGH.md`](docs/DEMO_WALKTHROUGH.md)
 - SDK usage: [`packages/sdk/README.md`](packages/sdk/README.md)

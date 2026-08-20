@@ -46,47 +46,45 @@ KethyrPay 是一个**开发者优先（Developer-first）、默认隐私、兼�
 ## 当前 Demo 北极星（全链路真实，非 mock）
 
 ```
-连接钱包 → 商家铸造发票 (create_invoice) → 转移给付款人 (transfer_invoice)
-→ 付款人转账 (credits.aleo::transfer_public, 真实资金流动)
-→ 付款人支付 (pay_invoice, 真实 ZK Proof, 转账确认后才消费发票)
+连接钱包 → 商家铸造发票 (mint_to_payer, owner=付款人)
+→ 付款人准备 private ALEO record (transfer_public_to_private) → 支付 (pay_invoice 原子：transfer_private + 消费 InvoiceRecord + 双 Receipt，单笔交易，任一步失败整笔回滚)
 → 链上确认 (verifyPayment) → 商家后台收款明细 → View Key 账期导出
 ```
 
-[![KethyrPay 宣传视频](https://github.com/MoseStudio/kethyr-pay/raw/main/video/out/poster.jpg)](https://github.com/user-attachments/assets/0dc1de97-dc1c-4be5-a8b8-1c799bb5e88a)
-
-> **安全设计**：支付流程先执行 credits 转账并等待链上确认（60s 超时），
-> 确认成功后才签名 `pay_invoice` 消费发票——杜绝「只消费发票不转账」漏洞。
+> **安全设计**：v3 采用**单笔交易原子结算**——`transfer_private` 转移 ALEO、消费 InvoiceRecord、产出双 Receipt 在同一笔交易内顺序执行；任一步失败整笔 revert，**杜绝任何中间态**。
 
 ## 核心亮点
 
 | 特性 | 说明 |
 |------|------|
 | 🔒 隐私收单 | 链上 PaymentRecord 为密文，金额/付款人仅 View Key 可解密 |
-| 💸 真实资金流 | 支付含 `credits.aleo::transfer_public` 转账，钱包余额真实变动 |
+| 💸 真实资金流 | 单笔 `pay_invoice` 内 `credits.aleo::transfer_private`，余额真实变动 |
 | ⚖️ 合规底线 | Sender Ciphertext 承诺（group 元素）链上可审计，不碰 Mixer |
 | 🧾 防重放 | InvoiceRecord.serial_number = BHP256 哈希，同一发票仅支付一次 |
-| 📊 商家后台 | 累计收款 + 交易明细 + RFC-4180 CSV / JSON 账期导出 |
-| ⚡ 性能埋点 | prove / broadcast / confirm 全程耗时导出 |
+| 📊 商家后台 | 累计收款 + 交易明细 + RFC-4180 CSV / JSON 账期导出（ALEO 计价） |
+| ⚡ 性能埋点 | prove / broadcast / confirm 全程耗时导出（可开关） |
 
 ## 架构
 
 ```
-contracts/pay_private/        Leo 收单合约 pay_private_v2.aleo（Testnet 已部署）
+contracts/pay_private/        Leo 收单合约 pay_private_v2.aleo（历史，已被 v3 替代）
+contracts/pay_private_v3/     Leo 收单合约 pay_private_v3.aleo（当前 Testnet 部署，原子结算）
 contracts/escrow_subscription/ Leo 隐私托管订阅合约（POC：授权 / 扣款 / 退订）
-packages/sdk/                 @kethyrpay/sdk：createPayment / verifyPayment / 发票铸造与转移
+packages/sdk/                 @kethyrpay/sdk：createPayment / verifyPayment / mint_to_payer
 frontend/demo/                TanStack Start + React 19：Checkout / Status / 商家后台
 ```
 
 - 智能合约：**Leo v4.4.1**（snarkVM 4.9.0）
 - 证明系统：`@provablehq/sdk` 浏览器 WASM Prover（Client-side Proving）
-- 钱包适配：`@provablehq/aleo-wallet-adaptor-*`（默认 Shield Wallet）
+- 钱包适配：`@provablehq/aleo-wallet-adaptor-*`（默认 Shield Wallet，自动连接，声明 pay_private_v3.aleo + credits.aleo）
 
 ## 启动 Demo
 
 ### 1. 合约（Leo 4.4.1）
 
 ```bash
-cd contracts/pay_private && leo build && leo test   # 8/8
+cd contracts/pay_private && leo build && leo test   # v2 历史合约 8/8
+cd contracts/pay_private_v3 && leo build && leo test # v3 原子合约
 ```
 
 ### 2. SDK
@@ -106,19 +104,21 @@ cd frontend/demo && pnpm install && pnpm dev   # http://localhost:3002
 ```env
 VITE_USE_REAL_TRANSACTIONS=true
 VITE_RPC_ENDPOINT=https://api.explorer.provable.com/v1   # 默认端点不可达时的覆盖
+VITE_ENABLE_PERFORMANCE_PANEL=false   # 显示右下角性能面板（调试用）
 ```
+
+前端同时启用 CSRF 中间件保护 server functions（same-origin RPC），详见 `src/start.ts`。
 
 ### 演示动线
 
 ```
-商家钱包 → /merchant/invoice 铸造并转移发票 → 「打开支付页」直达 Checkout
-付款人钱包 → Checkout 支付（先签 transfer_public 转账，确认后再签 pay_invoice）
-付款人钱包 → status 页确认成功（金额 + 两笔交易 ID）→ 「商家后台」直达
+商家钱包 → /merchant/invoice 铸造并交付发票（mint_to_payer 单笔） → 「打开支付页」直达 Checkout
+付款人钱包 → Checkout 支付（单笔 pay_invoice 原子：private ALEO + InvoiceRecord + 双 Receipt）
+付款人钱包 → status 页确认成功（金额 + 交易 ID）→ 「商家后台」直达
 商家钱包 → /merchant 见收款明细 + /merchant/export 导出账期
 ```
 
-浏览器需安装 **Shield Wallet** 扩展并切换到 Testnet；钱包需授权
-`pay_private_v2.aleo` + `credits.aleo` 两个程序（代码已声明，重连钱包生效）。
+浏览器需安装 **Shield Wallet** 扩展并切换到 Testnet；钱包需授权 `pay_private_v3.aleo` + `credits.aleo` 两个程序（代码已声明，重连钱包生效）。
 
 ## 产品路线图
 
@@ -172,22 +172,24 @@ VITE_RPC_ENDPOINT=https://api.explorer.provable.com/v1   # 默认端点不可达
 ## 关键技术决策
 
 - **Proving 策略**：MVP 阶段坚决采用 **Client-side Proving**（慢几秒但架构极简、安全性最高，私钥不出设备）；Scaling 阶段再引入 **Delegate Proving**（Compute Key 保护资产不丢失，优化移动端/弱网体验）。
-- **支付流程（兼容性设计 → 演进）**：当前支付为**两笔交易**——先 `transfer_public` 公开转账并确认链上成功，再 `pay_invoice` 消费发票产出隐私收款记录（`pay_private_v2.aleo` 聚焦证明与记账，Leo 暂无法原子转账）。未来演进：**私有转账**（`transfer_private` 保护付款金额隐私）→ **原子化**（合约内完成转账+消费发票，单笔交易）。无论哪种方式，**「先转账、确认成功、再消费发票」安全不变量始终成立**。
+- **支付流程（v3 原子化）**：**单笔 `pay_invoice` 原子完成** `credits.aleo::transfer_private` + 消费 InvoiceRecord + 产出双 Receipt；任一步失败整笔 revert。历史 v2 曾需两笔交易先转账再消费，v3 已消除中间态。
 - **合规底线**：坚决不碰混币器（Mixer）。任何转账必须包含 **Sender Ciphertext**，确保收款人（及授权监管方）有权知道资金来源——这是 KethyrPay 不被司法部/SEC 封杀的底线。
 
 ## Testnet 部署
 
 | 字段 | 值 |
 |------|-----|
-| Program ID | `pay_private_v2.aleo` |
-| 部署交易 | `at1f6vzg6az4r2ztgxh5ctudhfcstdz42d2rgjzfuud60aut8lxeu8qldke5l` |
-| Explorer | https://explorer.provable.com/program/pay_private_v2.aleo |
-| v1（历史） | `pay_private.aleo`（无 transfer_invoice，@noupgrade 不可升级） |
+| Program ID | `pay_private_v3.aleo`（当前） |
+| 部署交易 | `at1sq0xgyaqsx53k9eqkgexzu2njjpt66p4c0jzh566taqe6yj9nufqzre8wy` |
+| Explorer | https://explorer.provable.com/program/pay_private_v3.aleo |
+| 总费用 | 10.849479 ALEO |
+| v1（历史） | `pay_private.aleo`（无 transfer_invoice，@noupgrade） |
+| v2（历史） | `pay_private_v2.aleo`（单笔非原子，已被 v3 替代） |
 
 ## 文档
 
-- 收单合约设计：[`contracts/pay_private/DESIGN.md`](contracts/pay_private/DESIGN.md)
-- 收单合约部署：[`contracts/pay_private/DEPLOYMENT.md`](contracts/pay_private/DEPLOYMENT.md)
+- 收单合约设计：[`contracts/pay_private_v3/DESIGN.md`](contracts/pay_private_v3/DESIGN.md)（当前） / [`contracts/pay_private/DESIGN.md`](contracts/pay_private/DESIGN.md)（历史）
+- 收单合约部署：[`contracts/pay_private_v3/DEPLOYMENT.md`](contracts/pay_private_v3/DEPLOYMENT.md)
 - 托管订阅合约设计：[`contracts/escrow_subscription/DESIGN.md`](contracts/escrow_subscription/DESIGN.md)
 - Demo 自助操作流程：[`docs/DEMO_WALKTHROUGH.md`](docs/DEMO_WALKTHROUGH.md)
 - SDK 使用：[`packages/sdk/README.md`](packages/sdk/README.md)
