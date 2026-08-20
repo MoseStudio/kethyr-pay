@@ -1,0 +1,4 @@
+.env
+*.aleo.build/
+deploy-output.json
+build/

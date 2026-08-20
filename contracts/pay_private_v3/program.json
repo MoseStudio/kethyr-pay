@@ -1,0 +1,16 @@
+{
+  "program": "pay_private_v3.aleo",
+  "version": "0.3.0",
+  "description": "KethyrPay single-payment private checkout with atomic credits settlement",
+  "license": "MIT",
+  "leo": "4.4.1",
+  "dependencies": [
+    {
+      "name": "credits.aleo",
+      "location": "network",
+      "path": null,
+      "edition": null
+    }
+  ],
+  "dev_dependencies": null
+}
