@@ -150,13 +150,22 @@ export function sanitizeReturnUrl(value: string | undefined | null): string | un
  * `invoice_record`（可选）：商家转移后附带的 InvoiceRecord 明文，
  * 付款人带此参数打开 Checkout 时 pay_invoice 交易直接引用记录。
  */
+function stripSurroundingQuotes(v: string): string {
+  const t = v.trim()
+  if (t.length >= 2 && ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'")))) {
+    return t.slice(1, -1).trim()
+  }
+  return t
+}
+
 export function parseDemoParams(search: Record<string, unknown>): {
   amount?: string
   merchant?: string
   returnUrl?: string
   invoiceRecord?: string
 } {
-  const amount = typeof search.amount === 'string' ? search.amount.trim() : undefined
+  const rawAmount = typeof search.amount === 'string' ? search.amount.trim() : undefined
+  const amount = rawAmount ? stripSurroundingQuotes(rawAmount) : undefined
   const merchant =
     typeof search.merchant === 'string' ? search.merchant.trim() : undefined
   const returnUrl =
@@ -194,9 +203,15 @@ export function generateDemoInvoiceId(seed: string, now = Date.now()): string {
 
 /**
  * demo 模式构造 PaymentIntent：
- * - 现场用 SDK `createPayInvoiceTransaction` 构造 pay_invoice 交易参数
- * - 不进后端，直接可签名 / 广播 / 轮询（invoiceId 走与 SDK verifyPayment
- *   相同的 paymentIdToField 映射）
+ * - `transaction` 字段是个**模板占位**——v3 原子结算要求付款人在签名时
+ *   现场注入 `invoiceRecord`（商家铸造给付款人后由付款人钱包扫描）和
+ *   `token`（付款人的 private credits record）。这两个输入与具体钱包
+ *   绑定，无法在 PaymentIntent 创建时预知。
+ * - 实际签名路径在 `pay.$invoiceId.tsx` 的 handlePay：扫描 wallet →
+ *   `createPayInvoiceTransaction({ invoiceRecord, token, ... })` 现场
+ *   构造真正的 4-input 交易后再签名。
+ * - 这里仍然填一个 3-input 占位（满足 PaymentIntent 类型约束 +
+ *   调试可见），但**该 payload 永远不会被钱包签名**。
  */
 export function buildDemoPaymentIntent(params: {
   invoiceId: string
@@ -204,7 +219,7 @@ export function buildDemoPaymentIntent(params: {
   merchant: string
   expiresInMs?: number
   paymentBaseUrl?: string
-  /** InvoiceRecord 明文（Leo 记录字面量）；商家转移后附带，付款人支付时引用 */
+  /** InvoiceRecord 明文（Leo 记录字面量）；付款人 wallet 扫描的备选 */
   invoiceRecord?: string
 }): PaymentIntent {
   const amount = normalizeAmount(params.amount)
@@ -221,11 +236,11 @@ export function buildDemoPaymentIntent(params: {
     merchant: params.merchant,
     expires_at,
     payment_url: `${base}/pay/${params.invoiceId}`,
+    // 模板占位：v3 4-input 真正的 payload 由付款人侧 handlePay 扫描 wallet 后构造。
     transaction: createPayInvoiceTransaction({
       invoiceId: params.invoiceId,
       amount,
       merchant: params.merchant,
-      invoiceRecord: params.invoiceRecord,
     }),
   }
 }

@@ -3,10 +3,10 @@
  *
  * 职责：
  * - 收款明细聚合：从 PaymentIntentRecord 列表计算累计金额 / 最近交易
- * - PaymentRecord（链上 `pay_private.aleo`）解析与解密辅助：
- *   - 解析钱包 `requestRecords('pay_private.aleo')` / `requestTransactionHistory`
+ * - Receipt（链上 `pay_private_v3.aleo` 的 MerchantReceipt / PayerReceipt）解析与解密辅助：
+ *   - 解析钱包 `requestRecords('pay_private_v3.aleo')` / `requestTransactionHistory`
  *     返回的记录（JSON 或 Leo 记录字面量两种形态）
- *   - 识别 `pay_private.aleo` 的 PaymentRecord 字段
+ *   - 识别 `pay_private_v3.aleo` 的 Receipt 字段
  *     （owner / merchant / sender / sender_ciphertext / amount / invoice_id）
  *
  * 设计约束：本模块保持纯函数（不 import react / WASM），
@@ -16,8 +16,29 @@
 import type { PaymentIntentRecord } from './payment-intents.ts'
 import { unwrapRecord } from './invoice-record.ts'
 
-/** 链上 PaymentRecord 明文（pay_private.aleo 结构） */
+/**
+ * 链上 PaymentRecord 明文（pay_private_v2.aleo 历史结构，保留以兼容旧数据集）。
+ * 字段集与 MerchantReceiptPlaintext 同构（除无 sender / sender_ciphertext）；
+ * v3 上线后商家后台主要使用 MerchantReceipt。
+ */
 export interface PaymentRecordPlaintext {
+  owner: string
+  merchant: string
+  sender: string
+  sender_ciphertext: string
+  amount: string
+  invoice_id: string
+}
+
+/**
+ * 链上 MerchantReceipt / PayerReceipt 明文（pay_private_v3.aleo 结构）。
+ *
+ * 商家后台在链上扫描 Receipt 后，把密文记录解密为 MerchantReceiptPlaintext，
+ * 用于账期导出 / 收款明细展示。PaymentRecordPlaintext 与之同构，共用同一份
+ * 解析实现（字段集一致：`owner / merchant / sender / sender_ciphertext /
+ * amount / invoice_id`）。
+ */
+export interface MerchantReceiptPlaintext {
   owner: string
   merchant: string
   sender: string
@@ -108,9 +129,27 @@ function extractField(obj: Record<string, unknown>, key: string): string {
 }
 
 /**
- * 解析 pay_private.aleo 的 PaymentRecord。
+ * 解析 pay_private_v3.aleo 的 MerchantReceipt / PayerReceipt 明文。
+ *
+ * 字段集与 v2 PaymentRecord 同构（`owner / merchant / sender /
+ * sender_ciphertext / amount / invoice_id`），共用同一份解析实现。
+ * 暴露独立别名便于：
+ *  1. 语义明示（v3 是 Receipt，不是 v2 的 PaymentRecord）
+ *  2. 未来字段集分歧时只改这一处不影响其他模块
+ */
+export function parseMerchantReceipt(input: unknown): MerchantReceiptPlaintext | null {
+  // Receipt 字段集与 PaymentRecord 相同，转发给 parsePaymentRecord 实现
+  const parsed = parsePaymentRecord(input)
+  return parsed as MerchantReceiptPlaintext | null
+}
+
+/**
+ * 解析 pay_private_v2.aleo 的 PaymentRecord（历史结构，保留以兼容旧数据集）。
  * 兼容 Shield OwnedRecord（recordPlaintext / recordView.fields）与其他
  * wallet-standard RecordEnvelope 形态。解析失败返回 null。
+ *
+ * v3 起 Receipt 字段集与 PaymentRecord 同构，业务上可互换使用；
+ * 优先使用 parseMerchantReceipt 表达 v3 语义。
  */
 export function parsePaymentRecord(input: unknown): PaymentRecordPlaintext | null {
   // 直接字符串（Leo 记录字面量 / JSON）
@@ -195,6 +234,35 @@ export function parsePaymentRecord(input: unknown): PaymentRecordPlaintext | nul
  * 记录可能有多层包装（RecordEnvelope.recordView.fields / OwnedRecord 等），
  * 本函数做扁平化尝试：先取 recordView.fields，再取 record / plaintext 字段。
  */
+function extractRecordTimestamp(raw: unknown): string | null {
+  if (raw !== null && typeof raw === 'object') {
+    const obj = raw as Record<string, unknown>
+    const candidates: unknown[] = [
+      obj.timestamp,
+      obj.createdAt,
+      obj.blockTimestamp,
+      (obj.data as Record<string, unknown> | undefined)?.timestamp,
+    ]
+    for (const v of candidates) {
+      if (typeof v === 'string' && v) {
+        const t = Date.parse(v)
+        if (!Number.isNaN(t)) return new Date(t).toISOString()
+      }
+      if (typeof v === 'number' && Number.isFinite(v)) {
+        const ms = v > 1e12 ? v : v * 1000
+        return new Date(ms).toISOString()
+      }
+    }
+    const bh = obj.blockHeight
+    if (typeof bh === 'number' && Number.isFinite(bh)) {
+      // Shield wallet 的 blockHeight 可作为兜底排序锚点：回推为一个稳定时间
+      // 避免全部落在同一分钟；保留 ISO 形式以便后续替换为链上真实时间
+      return new Date(Date.now() - (18850000 - bh) * 3000).toISOString()
+    }
+  }
+  return null
+}
+
 export function extractMerchantPayments(
   records: unknown[],
   merchant: string,
@@ -204,10 +272,11 @@ export function extractMerchantPayments(
   for (const raw of records) {
     const parsed = parsePaymentRecord(raw)
     if (parsed && parsed.merchant === merchant) {
+      const ts = extractRecordTimestamp(raw) ?? new Date().toISOString()
       entries.push({
         invoice_id: parsed.invoice_id,
         amount: (Number(parsed.amount) / 1_000_000).toFixed(6),
-        createdAt: new Date().toISOString(),
+        createdAt: ts,
         status: 'paid',
         sender: parsed.sender || undefined,
         sender_ciphertext: parsed.sender_ciphertext || undefined,
@@ -245,8 +314,20 @@ export function mergePaymentEntries(
     byId.set(record.invoice_id, paymentIntentToEntry(record))
   }
   for (const entry of onchain) {
-    // 链上记录（已支付）优先级更高：覆盖 pending 状态并补充 sender 信息
-    byId.set(entry.invoice_id, entry)
+    const existing = byId.get(entry.invoice_id)
+    if (existing) {
+      // 链上已支付：保留发票创建时间，状态/金额/sender 走链上
+      byId.set(entry.invoice_id, {
+        ...existing,
+        amount: entry.amount,
+        status: entry.status,
+        sender: entry.sender,
+        sender_ciphertext: entry.sender_ciphertext,
+        source: 'onchain',
+      })
+    } else {
+      byId.set(entry.invoice_id, entry)
+    }
   }
 
   return [...byId.values()].sort(
