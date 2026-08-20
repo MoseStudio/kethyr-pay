@@ -22,7 +22,7 @@ function shieldOwnedRecord(overrides: {
     outputIndex: 0,
     // 顶层 owner 是 record commitment（field），不是地址——不能用作记录 owner
     owner: '5816678430409870700679217267518351456853540762943589178368590156379864613704field',
-    programName: 'pay_private_v2.aleo',
+    programName: 'pay_private_v3.aleo',
     recordName: 'InvoiceRecord',
     sender: MERCHANT,
     spent: overrides.spent ?? false,

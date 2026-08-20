@@ -19,8 +19,8 @@
 
 import type { TransactionOptions } from '@provablehq/aleo-types'
 
-/** 默认支付合约：pay_private_v2.aleo（与 SDK PROGRAM_ID 一致） */
-export const PROGRAM_ID = 'pay_private_v2.aleo'
+/** 默认支付合约：pay_private_v3.aleo（v3 原子结算；与 SDK PROGRAM_ID 一致） */
+export const PROGRAM_ID = 'pay_private_v3.aleo'
 
 /** 默认交易手续费（microcredits，0.1 credits） */
 export const DEFAULT_FEE = 100_000
@@ -30,6 +30,12 @@ export const DEFAULT_PAYMENT_BASE_URL = 'https://pay.kethyrpay.example'
 
 /** 发票默认过期时长（30 分钟，与 SDK DEFAULT_EXPIRES_IN_MS 一致） */
 export const DEFAULT_EXPIRES_IN_MS = 30 * 60 * 1000
+
+/** 默认 sender_ciphertext group 字面量（无承诺占位） */
+const DEFAULT_SENDER_CIPHERTEXT = '0group'
+
+/** 默认 credits record plaintext 占位（v3 pay_invoice 的 token） */
+const DEFAULT_CREDITS_TOKEN = '0field'
 
 /** Aleo 地址正则：aleo1 + 58 位小写字母数字（与 SDK 一致） */
 const ALEO_ADDRESS_RE = /^aleo1[a-z0-9]{58}$/
@@ -101,9 +107,15 @@ export function validateMerchant(merchant: string): string {
 }
 
 /**
- * 构造 pay_private.aleo `pay_invoice` 交易参数（与 SDK createPayInvoiceTransaction 一致）。
- * 真实交易需要付款人先拥有 InvoiceRecord；这里返回参数载荷供 Checkout 页消费，
- * 交易广播由钱包层完成。
+ * 构造 pay_private_v3.aleo `pay_invoice` 交易参数（与 SDK createPayInvoiceTransaction 一致）。
+ *
+ * v3 原子结算：单笔交易完成 credits.aleo::transfer_private + 消费 InvoiceRecord +
+ * 产出 MerchantReceipt + PayerReceipt + 双找零 credits record。任一步失败整笔回滚。
+ *
+ * 入参形式（与 SDK 对齐）：
+ * - 带 invoiceRecord（真实原子支付路径）：inputs = [invoice, amount, sender_ciphertext, token]
+ * - 不带 invoiceRecord（demo / 占位）：inputs = [invoiceId, amount, sender_ciphertext]
+ * - 带 invoiceRecord + 无 token：默认占位 '0field'（仅用于 demo / 测试载荷）
  */
 export function createPayInvoiceTransaction(params: {
   invoiceId: string
@@ -111,18 +123,29 @@ export function createPayInvoiceTransaction(params: {
   merchant: string
   invoiceRecord?: string
   senderCiphertext?: string
+  /** v3 pay_invoice 的 token：credits.aleo::credits plaintext；缺省 '0field' 占位 */
+  token?: string
   fee?: number
   privateFee?: boolean
 }): TransactionOptions {
-  const { invoiceId, amount, merchant, invoiceRecord, senderCiphertext, fee, privateFee } =
-    params
+  const {
+    invoiceId,
+    amount,
+    merchant,
+    invoiceRecord,
+    senderCiphertext,
+    token,
+    fee,
+    privateFee,
+  } = params
 
   encodeAddress(merchant)
   const amountU64 = encodeU64(amount)
+  const senderCt = senderCiphertext ?? DEFAULT_SENDER_CIPHERTEXT
 
   const inputs = invoiceRecord
-    ? [invoiceRecord, amountU64, senderCiphertext ?? '0group']
-    : [invoiceId, amountU64, senderCiphertext ?? '0group']
+    ? [invoiceRecord, amountU64, senderCt, token ?? DEFAULT_CREDITS_TOKEN]
+    : [invoiceId, amountU64, senderCt]
 
   return {
     program: PROGRAM_ID,

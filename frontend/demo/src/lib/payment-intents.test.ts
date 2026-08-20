@@ -4,7 +4,7 @@
  * 覆盖：
  * - demo 参数解析（amount + merchant 校验 / return_url 过滤）
  * - demo 发票 ID 生成（确定性 + 前缀）
- * - buildDemoPaymentIntent 现场构造 transaction（pay_private.aleo pay_invoice）
+ * - buildDemoPaymentIntent 现场构造 transaction（pay_private_v3.aleo pay_invoice）
  * - fetchPaymentIntent 后端未就绪（404）→ notReady 标记
  */
 
@@ -82,7 +82,7 @@ describe('generateDemoInvoiceId', () => {
 })
 
 describe('buildDemoPaymentIntent', () => {
-  it('现场构造 pay_private_v2.aleo pay_invoice 交易参数', () => {
+  it('现场构造 PaymentIntent 模板（3-input 占位，付款人侧运行时构造真正 4-input）', () => {
     const intent = buildDemoPaymentIntent({
       invoiceId: 'inv_demo_abcd1234',
       amount: '1.5',
@@ -95,8 +95,29 @@ describe('buildDemoPaymentIntent', () => {
     expect(intent.merchant).toBe(MERCHANT)
     expect(intent.expires_at).toBeDefined()
     expect(intent.payment_url).toBe('https://pay.kethyrpay.example/pay/inv_demo_abcd1234')
+    // v3 4-input 真实 payload 由付款人侧 handlePay 扫描 wallet 后构造，
+    // 这里只填一个 3-input 占位（满足 PaymentIntent.transaction 类型约束 + 调试可见）。
     expect(intent.transaction).toMatchObject({
-      program: 'pay_private_v2.aleo',
+      program: 'pay_private_v3.aleo',
+      function: 'pay_invoice',
+      inputs: ['inv_demo_abcd1234', '1500000u64', '0group'],
+      fee: 100000,
+    })
+  })
+
+  it('传 invoiceRecord 也不预构 4-input 真实 payload（运行时注入）', () => {
+    const record = '{ owner: aleo1aaaa.private, amount: 1500000u64.private }'
+    const intent = buildDemoPaymentIntent({
+      invoiceId: 'inv_demo_abcd1234',
+      amount: '1.5',
+      merchant: MERCHANT,
+      paymentBaseUrl: 'https://pay.kethyrpay.example',
+      invoiceRecord: record,
+    })
+    // 模板占位仍是 3-input；真正的 invoiceRecord + credits token 由
+    // 付款人侧 handlePay 扫描 wallet 后调 createPayInvoiceTransaction 构造。
+    expect(intent.transaction).toMatchObject({
+      program: 'pay_private_v3.aleo',
       function: 'pay_invoice',
       inputs: ['inv_demo_abcd1234', '1500000u64', '0group'],
       fee: 100000,
@@ -181,7 +202,7 @@ describe('fetchPaymentIntent（012 衔接）', () => {
               merchant: MERCHANT,
               expires_at: new Date().toISOString(),
               payment_url: '/pay/inv_ok',
-              transaction: { program: 'pay_private_v2.aleo' },
+              transaction: { program: 'pay_private_v3.aleo' },
             },
           }),
           { status: 200 },

@@ -47,7 +47,7 @@ describe('InMemoryPaymentIntentStore', () => {
         `https://pay.kethyrpay.example/pay/${record.invoice_id}`,
       )
       // 交易参数（可直接交给钱包 signTransaction）
-      expect(record.transaction.program).toBe('pay_private_v2.aleo')
+      expect(record.transaction.program).toBe('pay_private_v3.aleo')
       expect(record.transaction.function).toBe('pay_invoice')
       expect(record.transaction.inputs).toContain('1500000u64')
       // 持久化元数据

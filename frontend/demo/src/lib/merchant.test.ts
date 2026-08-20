@@ -26,7 +26,7 @@ function makeRecord(partial: Partial<PaymentIntentRecord>): PaymentIntentRecord 
     merchant: MERCHANT,
     expires_at: new Date(Date.now() + 3_600_000).toISOString(),
     payment_url: `https://pay.kethyrpay.example/pay/inv_00000001`,
-    transaction: { program: 'pay_private.aleo', function: 'pay_invoice', inputs: [] },
+    transaction: { program: 'pay_private_v3.aleo', function: 'pay_invoice', inputs: [] },
     idempotencyKey: `${MERCHANT}:1.500000`,
     createdAt: '2026-08-14T10:00:00.000Z',
     status: 'pending',
@@ -34,7 +34,7 @@ function makeRecord(partial: Partial<PaymentIntentRecord>): PaymentIntentRecord 
   }
 }
 
-describe('parsePaymentRecord（pay_private.aleo PaymentRecord 解析）', () => {
+describe('parsePaymentRecord（pay_private_v3.aleo Receipt 解析，含 v2 PaymentRecord 兼容）', () => {
   it('解析 Leo 记录字面量', () => {
     const leo = `{
       owner: ${MERCHANT}.private,
@@ -93,7 +93,7 @@ describe('parsePaymentRecord（pay_private.aleo PaymentRecord 解析）', () => 
         '6498815943267326755357337847109418364419246433435944011905912834896332482072field',
       functionName: 'pay_invoice',
       owner: '5816678430409870700679217267518351456853540762943589178368590156379864613704field',
-      programName: 'pay_private_v2.aleo',
+      programName: 'pay_private_v3.aleo',
       recordName: 'PaymentRecord',
       recordPlaintext,
       recordView: {
@@ -125,7 +125,7 @@ describe('parsePaymentRecord（pay_private.aleo PaymentRecord 解析）', () => 
     const raw = {
       functionName: 'pay_invoice',
       owner: '5816678430409870700679217267518351456853540762943589178368590156379864613704field',
-      programName: 'pay_private_v2.aleo',
+      programName: 'pay_private_v3.aleo',
       recordName: 'PaymentRecord',
       recordView: {
         fields: {
