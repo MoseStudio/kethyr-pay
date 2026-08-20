@@ -149,10 +149,10 @@ export function WalletProviders({ children }: { children: ReactNode }) {
       autoConnect
       decryptPermission={DecryptPermission.UponRequest}
       // 声明需要同步记录的程序：Shield 钱包只自动同步 connect 时列出的程序，
-      // 缺省时 requestRecords('pay_private_v2.aleo') 会返回空数组，
+      // 缺省时 requestRecords('pay_private_v3.aleo') 会返回空数组，
       // 导致铸造发票后扫描不到 InvoiceRecord（ALEO-MVP-018 H5 联调）。
-      // credits.aleo 用于 transfer_public 支付（付款人转账 credits 给商家）。
-      programs={['pay_private_v2.aleo', 'credits.aleo']}
+      // credits.aleo 用于 transfer_private 支付（v3 pay_invoice 内置 credits.aleo::transfer_private）。
+      programs={['pay_private_v3.aleo', 'credits.aleo']}
     >
       <WalletModalProvider>
         <AdapterBridge useWallet={useWallet}>{children}</AdapterBridge>

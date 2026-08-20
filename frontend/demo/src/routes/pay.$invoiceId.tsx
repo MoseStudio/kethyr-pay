@@ -9,7 +9,8 @@
  *
  * 页面能力：
  * - URL 解析 invoice 并展示金额 / 商家 / 发票号 / 过期倒计时
- * - 未连接钱包 → RequireWallet 引导（复用组件）
+ * - 未连接钱包 → CheckoutModal 内的「Pay from」钱包卡片引导，
+ *   不再单独用 RequireWallet 包裹整个页面。
  * - 支付 = 签名 + 广播真实交易（钱包 adapter executeTransaction）
  *   - 后端返回的 PaymentIntent.transaction 直接签名
  *   - demo 模式用 SDK `createPayInvoiceTransaction` 现场构造
@@ -28,11 +29,15 @@ import {
 import type { PaymentIntent } from '@kethyrpay/sdk'
 import { createPayInvoiceTransaction, creditsToMicrocredits, paymentIdToField } from '@kethyrpay/sdk'
 
-import { RequireWallet } from '@/components/RequireWallet.tsx'
-import { WalletStatus } from '@/components/WalletStatus.tsx'
+import { CheckoutModal } from '@/components/CheckoutModal.tsx'
 import { useAleoWallet } from '@/hooks/useAleoWallet.ts'
 import { usePerformance } from '@/hooks/usePerformance.ts'
-import { parseInvoiceRecord } from '@/lib/invoice-record.ts'
+import {
+  parseCreditsRecord,
+  parseInvoiceRecord,
+  pickCreditsRecord,
+  sanitizeInvoiceRecordPlaintext,
+} from '@/lib/invoice-record.ts'
 import {
   buildDemoPaymentIntent,
   fetchPaymentIntent,
@@ -41,12 +46,10 @@ import {
 } from '@/lib/payment-intents.ts'
 import {
   classifyPaymentError,
-  formatRemaining,
   getRemainingMs,
-  truncateAddress,
 } from '@/lib/checkout.ts'
 
-/** demo 商家地址：HANDOFF §3 的 pay_private.aleo 部署者地址 */
+/** demo 商家地址：HANDOFF §3 的 pay_private_v3.aleo 部署者地址 */
 const DEMO_MERCHANT = 'aleo1cdsz2pdt2wsejg4rqfx5hnkwc3nndsn2c5fafuycjtg440e2gcrqdv8z69'
 
 interface CheckoutSearch {
@@ -56,17 +59,27 @@ interface CheckoutSearch {
   invoice_record?: string
 }
 
+function stripSearchQuotes(v: string): string {
+  const t = v.trim()
+  if (t.length >= 2 && ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'")))) {
+    return t.slice(1, -1).trim()
+  }
+  return t
+}
+
 export const Route = createFileRoute('/pay/$invoiceId')({
   component: PayInvoiceLayout,
   validateSearch: (search: Record<string, unknown>): CheckoutSearch => {
     // 注意：TanStack Router 默认 parseSearch 会把 URL 中可 JSON 解析的值
     // （如 "1.5" / "2"）转成 number，因此 amount 需兼容 string | number。
-    const amount = search.amount
+    // 另外有些入口会把 amount 编成 %221.5%22（带引号），需去引号。
+    const rawAmount = search.amount
+    let amount: string | undefined
+    if (typeof rawAmount === 'string' || typeof rawAmount === 'number') {
+      amount = stripSearchQuotes(String(rawAmount))
+    }
     return {
-      amount:
-        typeof amount === 'string' || typeof amount === 'number'
-          ? String(amount)
-          : undefined,
+      amount,
       merchant: typeof search.merchant === 'string' ? search.merchant : undefined,
       return_url: typeof search.return_url === 'string' ? search.return_url : undefined,
       invoice_record:
@@ -97,8 +110,17 @@ function CheckoutPage() {
   const search = Route.useSearch()
   const navigate = useNavigate()
 
-  const { connected, publicKey, signTransaction, requestRecords, transactionStatus } =
-    useAleoWallet()
+  const {
+    loaded: walletLoaded,
+    connected,
+    connecting,
+    publicKey,
+    connect: connectWallet,
+    disconnect: disconnectWallet,
+    signTransaction,
+    requestRecords,
+    transactionStatus,
+  } = useAleoWallet()
   const { startPhase, endPhase } = usePerformance()
 
   // ---- 数据来源：demo 参数优先，否则走后端发票 API（012） ----
@@ -112,6 +134,10 @@ function CheckoutPage() {
   const [payStatus, setPayStatus] = useState<PayStatus>('idle')
   const [error, setError] = useState<{ kind: string; message: string } | null>(null)
   const [expired, setExpired] = useState(false)
+  // 用户在右栏填写的元数据（备注 / Tax ID / 参考号）。
+  // 当前 demo 未消费这些字段；为后续把 memo / reference 写入 transaction.metadata
+  // （ALEO-MVP-022）保留 UI 入口。
+  const [meta, setMeta] = useState({ memo: '', taxId: '', reference: '' })
 
   // 过期倒计时（1s tick；无 expires_at 时剩余 0 不渲染倒计时）
   const [now, setNow] = useState(() => Date.now())
@@ -185,21 +211,27 @@ function CheckoutPage() {
     }
   }, [invoiceId, demoParams.amount, demoParams.merchant])
 
-  const copyAddress = async (address: string) => {
-    try {
-      await navigator.clipboard.writeText(address)
-    } catch {
-      // clipboard 不可用时静默失败（不影响主流程）
-    }
-  }
-
-  /** 支付主流程：先转账 credits → 确认成功 → 再消费发票（pay_invoice）。
-   *  顺序与确认是安全关键：绝不允许「只消费发票不转账」。 */
+  /** 支付主流程：v3 原子结算（单笔 pay_invoice 4-input 交易）。
+   *
+   *  1. 从付款人钱包扫描自己的 InvoiceRecord（owner=publicKey, invoice_id 匹配）。
+   *  2. 从付款人钱包扫描 credits.aleo private record（balance ≥ 金额）。
+   *  3. 构造 4-input pay_invoice：invoice + amount + sender_ciphertext + credits token。
+   *  4. 签名广播 → 链上原子完成 credits.aleo::transfer_private + 消费 InvoiceRecord
+   *     + 产出 MerchantReceipt + PayerReceipt。任一步失败整笔 revert。
+   */
   const handlePay = async () => {
     if (intentState.kind !== 'ready') return
     const intent = intentState.intent
     setError(null)
     setPayStatus('signing')
+
+    const withTimeout = <T,>(p: Promise<T>, ms: number, label: string): Promise<T> =>
+      Promise.race([
+        p,
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error(`${label} 超时（${ms / 1000}s）——钱包未响应，请检查钱包是否已解锁/是否已授权记录访问，或重试。`)), ms),
+        ),
+      ])
 
     /** 签名交易并轮询确认链上成功，返回链上交易 ID（at1...）。失败抛错。 */
     const signAndConfirm = async (
@@ -207,9 +239,13 @@ function CheckoutPage() {
       transaction: unknown,
       timeoutMs = 60_000,
     ): Promise<string> => {
-      const jobId = await signTransaction(transaction)
+      const jobId = await withTimeout(
+        Promise.resolve(signTransaction(transaction) as Promise<unknown>),
+        60_000,
+        `${label} 钱包签名`,
+      )
       if (!jobId) {
-        throw new Error(`${label} 签名失败：未返回交易 ID。`)
+        throw new Error(`${label} 签名失败：未返回交易 ID（钱包可能取消了签名）。`)
       }
       console.log(`[kethyrpay:checkout] ${label} signed, jobId =`, jobId)
 
@@ -241,61 +277,107 @@ function CheckoutPage() {
     }
 
     try {
-      // 1. 用付款人钱包自己扫描到的 InvoiceRecord 构造 pay_invoice 交易参数
-      //    （先构造，确认发票存在；真正签名在转账确认后）
-      let payInvoiceTx = intent.transaction
-      if (demoParams.invoiceRecord && publicKey) {
-        const expectedField = paymentIdToField(invoiceId)
-        const records = (await requestRecords('pay_private_v2.aleo', true)) ?? []
-        const owned = records
-          .map(parseInvoiceRecord)
-          .find(
-            (r) =>
-              r &&
-              r.owner === publicKey &&
-              r.invoiceId === expectedField &&
-              !r.spent &&
-              r.plaintext,
-          )
-        if (owned) {
-          payInvoiceTx = createPayInvoiceTransaction({
-            invoiceId: expectedField,
-            amount: intent.amount,
-            merchant: intent.merchant,
-            invoiceRecord: owned.plaintext,
-            senderCiphertext: '0group',
-          })
-          console.log('[kethyrpay:checkout] using wallet-owned InvoiceRecord', {
-            owner: owned.owner,
-            invoiceId: owned.invoiceId,
-          })
-        } else {
-          throw new Error(
-            '未能在当前钱包中找到待支付的 InvoiceRecord。请确认：1) 商家已通过 transfer_invoice 把发票转移给你；2) 钱包已同步/扫描到该记录（等待链上确认或刷新钱包记录）。',
-          )
-        }
+      if (!publicKey) {
+        throw new Error('钱包未连接：无法定位付款人记录。')
       }
 
-      // 2. 先转账 credits（credits.aleo::transfer_public 是标准公开转账）
-      startPhase('checkout-prove')
-      const amountU64 = `${creditsToMicrocredits(intent.amount).toString()}u64`
-      console.log('[kethyrpay:checkout] signing credits transfer', {
-        to: intent.merchant,
-        amount: amountU64,
-      })
-      const transferTxId = await signAndConfirm(
-        'credits transfer_public',
-        {
-          program: 'credits.aleo',
-          function: 'transfer_public',
-          inputs: [intent.merchant, amountU64],
-          fee: 100_000,
-          privateFee: false,
-        },
-      )
-      console.log('[kethyrpay:checkout] credits transfer confirmed on chain:', transferTxId)
+      const amountMicro = creditsToMicrocredits(intent.amount)
 
-      // 3. 转账已确认，才签名 pay_invoice 消费发票
+      // 1) 付款人扫描自己的 InvoiceRecord（owner=publicKey, invoice_id 匹配）。
+      // 扫描前给 wallet 一个明确的超时，避免 requestRecords 挂起导致按钮永久 loading 且不弹签名。
+      const expectedField = paymentIdToField(invoiceId)
+      console.log('[kethyrpay:checkout] scanning records', { expectedField, publicKey, invoiceId })
+      const invoiceRecords = (await withTimeout(
+        Promise.resolve(requestRecords('pay_private_v3.aleo', true) as Promise<unknown[]>).then((r) => r ?? []),
+        15_000,
+        '扫描 InvoiceRecord',
+      )) ?? []
+      console.log('[kethyrpay:checkout] invoiceRecords', invoiceRecords.length)
+      let ownedInvoice = invoiceRecords
+        .map(parseInvoiceRecord)
+        .find(
+          (r) =>
+            r &&
+            r.owner === publicKey &&
+            r.invoiceId === expectedField &&
+            !r.spent &&
+            r.plaintext,
+        )
+      // fallback：若钱包扫描不到但 URL 带了 invoice_record（商家通过链接直接交付的明文），则直接使用该记录
+      if (!ownedInvoice && demoParams.invoiceRecord) {
+        const fallback = parseInvoiceRecord(demoParams.invoiceRecord)
+        if (fallback && fallback.owner === publicKey && fallback.invoiceId === expectedField && fallback.plaintext) {
+          console.log('[kethyrpay:checkout] using invoiceRecord from URL fallback')
+          ownedInvoice = fallback
+        }
+      }
+      if (!ownedInvoice) {
+        throw new Error(
+          '未能在当前钱包中找到待支付的 InvoiceRecord。请确认：1) 商家已通过 mint_to_payer 把发票铸造并交付给你；2) 钱包已同步/扫描到该记录（等待链上确认或刷新钱包记录）。' +
+            (invoiceRecords.length === 0 ? '（钱包当前返回 0 条 pay_private_v3.aleo 记录）' : `（钱包返回 ${invoiceRecords.length} 条记录，但无匹配项）`),
+        )
+      }
+
+      // 2) 付款人扫描 credits.aleo private record（balance ≥ 金额）。
+      // v3 pay_invoice 内置 credits.aleo::transfer_private，必须由付款人提供一张
+      // ≥ 金额的 private credits record；多余余额会作为找零返回。
+      const creditsRecords = (await withTimeout(
+        Promise.resolve(requestRecords('credits.aleo', true) as Promise<unknown[]>).then((r) => r ?? []),
+        15_000,
+        '扫描 credits.aleo 记录',
+      )) ?? []
+      console.log('[kethyrpay:checkout] creditsRecords', creditsRecords.length)
+      const tokenPlaintext = pickCreditsRecord(
+        creditsRecords,
+        publicKey,
+        amountMicro,
+      )
+      if (!tokenPlaintext) {
+        const debug = creditsRecords
+          .map((r) => {
+            const p = parseCreditsRecord(r)
+            if (!p) return 'unparseable'
+            return `${p.owner.slice(0, 10)}…:${p.microcredits}u64${p.spent ? ':spent' : ''}${!p.plaintext ? ':no-plaintext' : ''} ownerMatch=${p.owner === publicKey}`
+          })
+          .slice(0, 5)
+          .join(' | ')
+        throw new Error(
+          '当前钱包没有余额 ≥ 支付金额的 private credits record。' +
+            '请先用 credits.aleo::transfer_public_to_private 把 public credits 转成 private 后重试。' +
+            (creditsRecords.length === 0 ? '（钱包当前返回 0 条 credits.aleo 记录）' : `（钱包返回 ${creditsRecords.length} 条记录，但均不满足余额 ≥ ${intent.amount}）`) +
+            (debug ? ` 调试：${debug}。也可在控制台查看 [kethyrpay:checkout] creditsRecords 明细。` : ''),
+        )
+      }
+
+      // 3) 构造 v3 4-input 原子 pay_invoice 交易。
+      // 钱包返回的 InvoiceRecord 可能多带 sender/_version 等字段（或少字段），
+      // 直接原样签名会导致 `InvoiceRecord expected 4/5 entries` 这类授权失败。
+      // 清洗为 5 字段标准形态后再签。
+      const sanitizedInvoice = sanitizeInvoiceRecordPlaintext(ownedInvoice.plaintext, {
+        expectedMerchant: intent.merchant,
+      })
+      if (sanitizedInvoice !== ownedInvoice.plaintext) {
+        console.log('[kethyrpay:checkout] sanitized InvoiceRecord plaintext (removed extra fields / normalized _nonce/_version)')
+      }
+      const payInvoiceTx = createPayInvoiceTransaction({
+        invoiceId: expectedField,
+        amount: intent.amount,
+        merchant: intent.merchant,
+        invoiceRecord: sanitizedInvoice,
+        token: tokenPlaintext,
+        senderCiphertext: '0group',
+      })
+      console.log('[kethyrpay:checkout] v3 atomic pay_invoice ready', {
+        owner: ownedInvoice.owner,
+        invoiceId: ownedInvoice.invoiceId,
+        merchant: intent.merchant,
+        amount: intent.amount,
+        tokenProvided: true,
+      })
+
+      // 4) 单笔交易签名广播（v3 atomic：credits.aleo::transfer_private +
+      //    消费 InvoiceRecord + 双 Receipt 在同一笔交易内完成）。
+      startPhase('checkout-prove')
       console.log('[kethyrpay:checkout] transaction inputs before sign', {
         program: (payInvoiceTx as { program?: string }).program,
         function: (payInvoiceTx as { function?: string }).function,
@@ -318,7 +400,6 @@ function CheckoutPage() {
         params: { invoiceId },
         search: {
           tx: payTxId,
-          transfer_tx: transferTxId,
           amount: intent.amount,
           return_url: returnUrl ?? undefined,
         },
@@ -331,120 +412,131 @@ function CheckoutPage() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center gap-6 p-8">
-      <div className="flex w-full max-w-2xl items-center justify-between">
-        <h1 className="text-4xl font-bold text-gray-900">Checkout</h1>
-        <WalletStatus />
-      </div>
-
-      <RequireWallet>
-        {intentState.kind === 'loading' && (
-          <div className="flex min-h-[50vh] w-full max-w-2xl flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center shadow-sm">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
-            <p className="text-gray-600">发票信息加载中…</p>
+    <>
+      {intentState.kind === 'loading' && (
+        <main className="flex min-h-screen items-center justify-center bg-zinc-100 p-4 transition-colors duration-200 dark:bg-zinc-950 md:p-8">
+          <div className="flex min-h-[50vh] w-full max-w-2xl flex-col items-center justify-center gap-4 rounded-3xl border border-zinc-200 bg-white p-8 text-center shadow-xl dark:border-zinc-800 dark:bg-[#121214] dark:shadow-2xl">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+            <p className="text-zinc-600 dark:text-zinc-400">发票信息加载中…</p>
           </div>
-        )}
+        </main>
+      )}
 
-        {intentState.kind === 'not-found' && (
-          <div className="flex min-h-[50vh] w-full max-w-2xl flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center shadow-sm">
-            <h2 className="text-2xl font-semibold text-gray-900">无法加载发票</h2>
-            <p className="max-w-md text-gray-600">{intentState.reason}</p>
+      {intentState.kind === 'not-found' && (
+        <main className="flex min-h-screen items-center justify-center bg-zinc-100 p-4 transition-colors duration-200 dark:bg-zinc-950 md:p-8">
+          <div className="flex min-h-[50vh] w-full max-w-2xl flex-col items-center justify-center gap-4 rounded-3xl border border-zinc-200 bg-white p-8 text-center shadow-xl dark:border-zinc-800 dark:bg-[#121214] dark:shadow-2xl">
+            <h2 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
+              无法加载发票
+            </h2>
+            <p className="max-w-md text-sm text-zinc-600 dark:text-zinc-400">
+              {intentState.reason}
+            </p>
             {!isDemo && (
-              <a
-                href={`/pay/demo?amount=1.5&merchant=${DEMO_MERCHANT}`}
-                className="mt-2 rounded-lg bg-emerald-600 px-4 py-2 font-semibold text-white hover:bg-emerald-700"
+              <button
+                type="button"
+                onClick={() =>
+                  void navigate({
+                    to: '/pay',
+                    search: { amount: '1.5', merchant: DEMO_MERCHANT },
+                  })
+                }
+                className="mt-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-500"
               >
                 用 Demo 发票试试
-              </a>
+              </button>
             )}
           </div>
-        )}
+        </main>
+      )}
 
-        {intentState.kind === 'ready' && (
-          <div className="w-full max-w-2xl rounded-xl bg-white p-6 shadow-sm">
-            <p className="mb-6 text-gray-600">完成一笔隐私支付（pay_private.aleo）</p>
+      {intentState.kind === 'ready' && (
+        <>
+          <CheckoutModal
+            intent={intentState.intent}
+            wallet={
+              !walletLoaded
+                ? { status: 'idle' }
+                : connecting
+                  ? { status: 'connecting' }
+                  : connected && publicKey
+                    ? { status: 'connected', publicKey }
+                    : { status: 'idle' }
+            }
+            onConnectWallet={() => {
+              void connectWallet()
+            }}
+            onDisconnectWallet={() => {
+              void disconnectWallet()
+            }}
+            payDisabled={
+              !connected || !publicKey || payStatus !== 'idle' || expired
+            }
+            payStatus={payStatus === 'error' ? 'idle' : payStatus}
+            remainingMs={
+              expired
+                ? 0
+                : intentState.kind === 'ready'
+                  ? getRemainingMs(intentState.intent.expires_at, now)
+                  : null
+            }
+            meta={meta}
+            onMetaChange={setMeta}
+            onPay={handlePay}
+          />
 
-            {/* 金额大字展示 */}
-            <div className="mb-6 rounded-xl bg-gray-50 p-6 text-center">
-              <p className="text-sm uppercase tracking-wide text-gray-500">应付金额</p>
-              <p className="mt-2 text-5xl font-extrabold text-gray-900">
-                {intentState.intent.amount}
-                <span className="ml-2 text-2xl font-semibold text-gray-500">credits</span>
-              </p>
-            </div>
+          {/* 过期 / 错误状态条：固定在卡片下方，不遮挡主交互 */}
+          {expired && (
+            <p className="fixed bottom-4 left-1/2 -translate-x-1/2 rounded-full border border-red-500/30 bg-red-500/10 px-4 py-1.5 text-xs text-red-700 shadow-lg backdrop-blur dark:text-red-300">
+              发票已过期
+            </p>
+          )}
 
-            <div className="mb-6 space-y-3 text-sm">
-              <div className="flex items-start justify-between gap-4">
-                <span className="font-medium text-gray-500">商家</span>
-                <span className="flex items-center gap-2">
-                  <span className="font-mono text-gray-800" title={intentState.intent.merchant}>
-                    {truncateAddress(intentState.intent.merchant)}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => copyAddress(intentState.intent.merchant)}
-                    className="rounded border border-gray-300 px-1.5 py-0.5 text-xs text-gray-500 hover:bg-gray-100"
-                    title="复制完整地址"
-                  >
-                    copy
-                  </button>
-                </span>
-              </div>
-              <div className="flex items-start justify-between gap-4">
-                <span className="font-medium text-gray-500">发票号</span>
-                <span className="font-mono text-gray-800">{intentState.intent.invoice_id}</span>
-              </div>
-              {intentState.intent.expires_at && (
-                <div className="flex items-start justify-between gap-4">
-                  <span className="font-medium text-gray-500">过期时间</span>
-                  <span className={`font-mono ${expired ? 'text-red-600' : 'text-gray-800'}`}>
-                    {expired ? '已过期' : formatRemaining(remainingMs)}
-                  </span>
-                </div>
-              )}
-            </div>
+          {isDemo && (
+            <aside className="mx-auto mb-6 w-full max-w-5xl rounded-xl border border-amber-500/20 bg-amber-50 p-3 text-xs text-amber-800 dark:bg-amber-500/5 dark:text-amber-200/90">
+              Demo 模式：交易参数由 SDK 现场构造，可直接签名广播到 testnet。
+              {demoParams.invoiceRecord
+                ? ' 已附带商家转移的 InvoiceRecord，支付将消费该发票记录。'
+                : ' 未附带 InvoiceRecord（无真实发票记录），仅用于界面演示。'}
+            </aside>
+          )}
 
-            {isDemo && (
-              <div className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
-                Demo 模式：交易参数由 SDK 现场构造，可直接签名广播到 testnet。
-                {demoParams.invoiceRecord
-                  ? ' 已附带商家转移的 InvoiceRecord，支付将消费该发票记录。'
-                  : ' 未附带 InvoiceRecord（无真实发票记录），仅用于界面演示。'}
-              </div>
-            )}
-
-            {/* 支付按钮 */}
-            <button
-              type="button"
-              disabled={!connected || !publicKey || payStatus !== 'idle' || expired}
-              onClick={handlePay}
-              className="w-full rounded-lg bg-emerald-600 px-4 py-3 font-semibold text-white shadow transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+          {payStatus === 'error' && error && (
+            <div
+              role="alert"
+              className="fixed bottom-4 left-1/2 z-50 flex w-[min(92vw,640px)] -translate-x-1/2 items-start gap-3 rounded-2xl border border-red-500/30 bg-white/95 px-4 py-3 text-sm shadow-xl backdrop-blur supports-[backdrop-filter]:bg-white/80 dark:border-red-500/30 dark:bg-zinc-900/95 dark:supports-[backdrop-filter]:bg-zinc-900/80"
             >
-              {expired
-                ? '发票已过期'
-                : payStatus === 'signing'
-                  ? '签名中…'
-                  : payStatus === 'broadcasting'
-                    ? '广播中…'
-                    : `支付 ${intentState.intent.amount} credits`}
-            </button>
-
-            {payStatus === 'error' && error && (
-              <div className="mt-4 rounded-lg bg-red-50 p-4 text-red-800">
-                <p className="font-semibold">支付失败（{error.kind}）</p>
-                <p className="mt-1 text-sm break-all">{error.message}</p>
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-red-800 dark:text-red-200">
+                  支付失败（{error.kind}）
+                </p>
+                <p className="mt-1 break-all text-xs leading-relaxed text-red-700/90 dark:text-red-300/90">
+                  {error.message}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setPayStatus('idle')}
-                  className="mt-3 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+                  className="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-500"
                 >
-                  重试支付
+                  重试
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPayStatus('idle')
+                    setError(null)
+                  }}
+                  aria-label="关闭提示"
+                  className="rounded-full border border-zinc-200 bg-white px-2.5 py-1.5 text-xs text-zinc-600 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                >
+                  ✕
                 </button>
               </div>
-            )}
-          </div>
-        )}
-      </RequireWallet>
-    </main>
+            </div>
+          )}
+        </>
+      )}
+    </>
   )
 }

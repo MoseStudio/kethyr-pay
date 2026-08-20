@@ -1,19 +1,33 @@
 /**
- * /merchant 布局路由（Wave H4 ALEO-MVP-015/016）。
+ * /merchant 布局路由（Polar 风格商家后台）。
  *
- * 商家后台挂载点（issue 验收标准：与 POC 前端同仓库挂载 `/merchant/*`）。
- * - /merchant            → merchant.index.tsx（收款概览 + 明细）
- * - /merchant/export     → merchant.export.tsx（View Key 账期导出，016）
+ * 文件式路由约定：当 pay.$invoiceId.tsx / merchant.invoice.tsx / merchant.export.tsx
+ * 同名文件存在时，merchant.tsx 是 /merchant 的**布局路由**，必须渲染 <Outlet />
+ * 才能让子路由显示。
  *
- * 与 /pay 布局一致：渲染 <Outlet /> 让子路由显示。
+ * 渲染职责：
+ *  - 在所有 merchant 子路由（/merchant, /merchant/invoice, /merchant/export）
+ *    外层包裹 Polar 风格的 App Shell（左侧栏 + 主面板）。
+ *  - 主面板内由 MerchantShell 自动渲染顶部 topbar + 页面内容。
+ *
+ * 子路由：
+ *  - /merchant              → merchant.index.tsx（Orders 概览 + 详情表）
+ *  - /merchant/invoice      → merchant.invoice.tsx（铸造 + 转移发票）
+ *  - /merchant/export       → merchant.export.tsx（View Key 账期导出）
  */
 
 import { Outlet, createFileRoute } from '@tanstack/react-router'
+
+import { MerchantShell } from '@/components/merchant/MerchantShell.tsx'
 
 export const Route = createFileRoute('/merchant')({
   component: MerchantLayout,
 })
 
 function MerchantLayout() {
-  return <Outlet />
+  return (
+    <MerchantShell>
+      <Outlet />
+    </MerchantShell>
+  )
 }

@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+/*
+ * Tailwind v4 的 `dark:` 变体默认走 `prefers-color-scheme` 媒体查询，
+ * 这意味着主题按钮 toggle <html class="dark"> 没有任何视觉效果。
+ * 覆盖成类选择器，让 src/hooks/useTheme.ts 的
+ * `document.documentElement.classList.toggle('dark', ...)` 真正生效。
+ * 详见 https://tailwindcss.com/docs/dark-mode#toggling-dark-mode-manually
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
 * {
   box-sizing: border-box;
 }

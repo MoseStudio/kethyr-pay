@@ -1,7 +1,7 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useAleoWallet } from '@/hooks/useAleoWallet.ts'
 
-/** demo 商家地址：pay_private_v2.aleo 部署者地址 */
+/** demo 商家地址：pay_private_v3.aleo 部署者地址（v3 原子结算） */
 const DEMO_MERCHANT = 'aleo1cdsz2pdt2wsejg4rqfx5hnkwc3nndsn2c5fafuycjtg440e2gcrqdv8z69'
 
 export const Route = createFileRoute('/')({

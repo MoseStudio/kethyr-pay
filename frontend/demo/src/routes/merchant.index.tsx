@@ -1,30 +1,36 @@
 /**
- * /merchant — 商家后台收款概览（ALEO-MVP-015）。
+ * /merchant — 商家后台收款概览（Polar 风格 Orders Dashboard，ALEO-MVP-015）。
  *
- * 商家连接钱包后（钱包地址即商家身份）：
- * - 数据源双通道：
- *   1. 发票系统：GET /api/payment-intents?merchant=xxx（012 的 PaymentIntent 列表）
- *   2. 链上记录：钱包 requestRecords('pay_private.aleo') 扫描 PaymentRecord
- * - 合并后展示累计收款金额 + 最近支付明细（金额 / 时间 / invoice_id / 付款人）
- * - View Key 解密语义：金额与付款人信息仅钱包持有者（View Key 所有者）可见——
- *   链上 PaymentRecord 由钱包解密后返回，未持有 View Key 无法得到明文。
+ * 数据源（保留旧实现的合并逻辑）：
+ *  1. 发票系统：GET /api/payment-intents?merchant=xxx
+ *  2. 链上记录：钱包 requestRecords('pay_private_v3.aleo') 扫描 Receipt
+ *  - 合并后展示累计收款 + 最近支付明细
+ *  - View Key 解密语义：金额与付款人信息仅钱包持有者可见
+ *
+ * 视觉/结构（Polar 风格）：
+ *  - 页面头部 h1「Orders」
+ *  - 工具栏：Product / Status / Today + Export 按钮（链向 /merchant/export）
+ *  - 三张 KPI 卡片：Orders / Revenue / Average Order Value
+ *  - 5 列网格表格：Date ↓ / Customer / Product / Status / Amount
+ *  - 钱包未连接时：保留原连接钱包提示，但视觉与新壳一致
  */
 
 import { useEffect, useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import { Wallet } from 'lucide-react'
 
+import { MerchantFilters } from '@/components/merchant/MerchantFilters.tsx'
+import { MerchantKpiCards } from '@/components/merchant/MerchantKpiCards.tsx'
+import { MerchantOrdersTable } from '@/components/merchant/MerchantOrdersTable.tsx'
+import { MerchantTopbar } from '@/components/merchant/MerchantTopbar.tsx'
 import { ConnectWalletButton } from '@/components/ConnectWalletButton.tsx'
-import { WalletStatus } from '@/components/WalletStatus.tsx'
 import { useAleoWallet } from '@/hooks/useAleoWallet.ts'
 import { listPaymentIntents } from '@/server/payment-intents-api.ts'
 import type { PaymentIntentRecord } from '@/lib/payment-intents.ts'
 import {
   extractMerchantPayments,
   formatAmount,
-  formatCreatedAt,
   mergePaymentEntries,
-  statusBadgeClass,
-  statusLabel,
   summarizePayments,
   type MerchantPaymentEntry,
 } from '@/lib/merchant.ts'
@@ -56,22 +62,16 @@ function MerchantDashboard() {
 
     const load = async () => {
       try {
-        // 通道 1：发票系统（012）——server fn RPC（REST /api/payment-intents 未注册）。
-        // handler 返回 Response，client 端解析 JSON。
-        const res = await listPaymentIntents({
-          data: { merchant },
-        })
+        const res = await listPaymentIntents({ data: { merchant } })
         const { intents } = (await res.json()) as { intents: PaymentIntentRecord[] }
 
-        // 通道 2：链上 PaymentRecord（钱包解密后返回明文）
         let onchainEntries: MerchantPaymentEntry[] = []
         let onchainCount = 0
         try {
-          const records = (await requestRecords('pay_private_v2.aleo', true)) ?? []
+          const records = (await requestRecords('pay_private_v3.aleo', true)) ?? []
           onchainEntries = extractMerchantPayments(records, merchant)
           onchainCount = onchainEntries.length
         } catch {
-          // 链上扫描失败不阻断：仍展示发票系统数据
           onchainCount = 0
         }
 
@@ -104,194 +104,102 @@ function MerchantDashboard() {
     return summarizePayments(dataState.entries, 50)
   }, [dataState])
 
-  const stats = useMemo(() => {
-    if (dataState.kind !== 'ready') return null
-    const entries = dataState.entries
-    return {
-      total: entries.length,
-      paid: entries.filter((e) => e.status === 'paid').length,
-      pending: entries.filter((e) => e.status === 'pending').length,
-      onchain: dataState.onchainCount,
-    }
-  }, [dataState])
+  const ordersCount = dataState.kind === 'ready' ? dataState.entries.length : 0
+  const totalAmount = summary?.totalAmount ?? '0'
 
   return (
-    <main className="flex min-h-screen flex-col gap-6 p-8">
-      <div className="flex w-full max-w-4xl items-center justify-between self-center">
-        <div>
-          <h1 className="text-4xl font-bold text-gray-900">Merchant Dashboard</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            商家后台 · 收款明细与 View Key 账期
-          </p>
-        </div>
-        <WalletStatus />
-      </div>
-
-      <div className="flex w-full max-w-4xl flex-col gap-4 self-center">
-        {!loaded && (
-          <div className="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center text-gray-600 shadow-sm">
-            钱包适配器加载中…
+    <>
+      <MerchantTopbar
+        left={
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-zinc-900 md:text-3xl dark:text-zinc-100">
+              Orders
+            </h1>
+            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              商家后台 · 收款明细与 View Key 账期
+            </p>
           </div>
-        )}
+        }
+      />
 
-        {loaded && !connected && (
-          <div className="flex flex-col items-center gap-6 rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center shadow-sm">
-            <h2 className="text-2xl font-semibold text-gray-900">连接钱包以查看收款明细</h2>
-            <p className="max-w-md text-gray-600">
+      {/* 工具栏 + Export 按钮 */}
+      <MerchantFilters />
+
+      {/* KPI 卡片 */}
+      <MerchantKpiCards
+        ordersCount={ordersCount}
+        totalAmountCredits={totalAmount}
+      />
+
+      {/* 加载 / 错误 / 未连接钱包提示 */}
+      {!loaded && (
+        <div className="rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 p-8 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900/40 dark:text-zinc-400">
+          钱包适配器加载中…
+        </div>
+      )}
+
+      {loaded && !connected && (
+        <div className="space-y-4 rounded-2xl border border-zinc-200/60 bg-zinc-50 p-6 text-center dark:border-zinc-800/60 dark:bg-zinc-900/60">
+          <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/10 text-blue-600 dark:text-sky-400">
+            <Wallet className="h-5 w-5" aria-hidden />
+          </div>
+          <div className="space-y-1">
+            <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+              连接钱包以查看收款明细
+            </h2>
+            <p className="mx-auto max-w-md text-xs text-zinc-500 dark:text-zinc-400">
               您的钱包地址即商家身份。链上 PaymentRecord 仅持有 View Key
               的商家可解密，连接钱包后即可查看。
             </p>
+          </div>
+          <div className="flex justify-center">
             <ConnectWalletButton />
           </div>
-        )}
+        </div>
+      )}
 
-        {connected && dataState.kind === 'loading' && (
-          <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center shadow-sm">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
-            <p className="text-gray-600">正在加载收款明细…</p>
-          </div>
-        )}
+      {connected && dataState.kind === 'loading' && (
+        <div className="flex items-center justify-center gap-3 rounded-2xl border border-zinc-200/60 bg-zinc-50 p-8 text-sm text-zinc-500 dark:border-zinc-800/60 dark:bg-zinc-900/60 dark:text-zinc-400">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+          正在加载收款明细…
+        </div>
+      )}
 
-        {connected && dataState.kind === 'error' && (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center shadow-sm">
-            <p className="font-semibold text-red-800">加载失败</p>
-            <p className="mt-1 text-sm text-red-700">{dataState.message}</p>
-            <button
-              type="button"
-              onClick={() => setReloadKey((k) => k + 1)}
-              className="mt-4 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
-            >
-              重试
-            </button>
-          </div>
-        )}
+      {connected && dataState.kind === 'error' && (
+        <div className="space-y-3 rounded-2xl border border-red-500/30 bg-red-50 p-6 text-sm text-red-800 dark:bg-red-500/10 dark:text-red-200">
+          <p className="font-semibold">加载失败</p>
+          <p className="text-xs">{dataState.message}</p>
+          <button
+            type="button"
+            onClick={() => setReloadKey((k) => k + 1)}
+            className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40"
+          >
+            重试
+          </button>
+        </div>
+      )}
 
-        {connected && dataState.kind === 'ready' && summary && stats && (
-          <>
-            {/* 累计金额 */}
-            <div className="rounded-xl bg-white p-6 shadow-sm">
-              <p className="text-sm uppercase tracking-wide text-gray-500">累计收款</p>
-              <p className="mt-2 text-5xl font-extrabold text-gray-900">
-                {formatAmount(summary.totalAmount)}
-                <span className="ml-2 text-2xl font-semibold text-gray-500">credits</span>
-              </p>
-              <p className="mt-2 font-mono text-xs text-gray-400 break-all">
-                {merchant}
-              </p>
-            </div>
+      {/* 订单表 / 空态 */}
+      {connected && dataState.kind === 'ready' && (
+        <>
+          <MerchantOrdersTable entries={dataState.entries} />
 
-            {/* 统计行 */}
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              <StatCard label="发票总数" value={String(stats.total)} />
-              <StatCard label="已支付" value={String(stats.paid)} color="text-emerald-600" />
-              <StatCard label="待支付" value={String(stats.pending)} color="text-amber-600" />
-              <StatCard
-                label="链上记录"
-                value={String(stats.onchain)}
-                color="text-sky-600"
-              />
-            </div>
+          {summary && (
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+              累计{' '}
+              <span className="font-semibold text-zinc-700 dark:text-zinc-200">
+                {formatAmount(summary.totalAmount)} ALEO
+              </span>
+              ，最近 50 笔订单已展示。
+            </p>
+          )}
 
-            {/* View Key 解密说明（验收标准 2） */}
-            <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-4 text-sm text-indigo-900 shadow-sm">
-              <p className="font-semibold">View Key 隐私说明</p>
-              <p className="mt-1">
-                链上 PaymentRecord 为密文记录，仅持有 View Key 的商家可解密金额与付款人身份。
-                当前数据由已连接钱包（持有 View Key）解密后展示——未持有 View Key 者无法获得明文。
-              </p>
-            </div>
-
-            {/* 最近交易 */}
-            <div className="overflow-hidden rounded-xl bg-white shadow-sm">
-              <div className="flex items-center justify-between px-6 py-4">
-                <h2 className="text-lg font-semibold text-gray-900">最近交易</h2>
-                <div className="flex gap-2">
-                  <a
-                    href="/merchant/invoice"
-                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
-                  >
-                    铸造发票
-                  </a>
-                  <a
-                    href="/merchant/export"
-                    className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
-                  >
-                    导出账期 (View Key)
-                  </a>
-                </div>
-              </div>
-
-              {summary.recent.length === 0 ? (
-                <div className="px-6 pb-8 pt-2 text-center text-gray-500">
-                  暂无收款记录。创建发票（/pay）并完成支付后，明细将出现在这里。
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead className="border-b border-gray-100 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
-                      <tr>
-                        <th className="px-6 py-3 font-medium">发票号</th>
-                        <th className="px-6 py-3 font-medium">金额</th>
-                        <th className="px-6 py-3 font-medium">时间</th>
-                        <th className="px-6 py-3 font-medium">状态</th>
-                        <th className="px-6 py-3 font-medium">付款人</th>
-                        <th className="px-6 py-3 font-medium">来源</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      {summary.recent.map((entry) => (
-                        <tr key={entry.invoice_id} className="hover:bg-gray-50">
-                          <td className="px-6 py-3 font-mono text-gray-800">
-                            {entry.invoice_id}
-                          </td>
-                          <td className="px-6 py-3 font-semibold text-gray-900">
-                            {formatAmount(entry.amount)}
-                          </td>
-                          <td className="px-6 py-3 text-gray-600">
-                            {formatCreatedAt(entry.createdAt)}
-                          </td>
-                          <td className="px-6 py-3">
-                            <span
-                              className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusBadgeClass(entry.status)}`}
-                            >
-                              {statusLabel(entry.status)}
-                            </span>
-                          </td>
-                          <td className="px-6 py-3 font-mono text-xs text-gray-500">
-                            {entry.sender
-                              ? `${entry.sender.slice(0, 10)}…${entry.sender.slice(-8)}`
-                              : '—'}
-                          </td>
-                          <td className="px-6 py-3 text-xs text-gray-400">
-                            {entry.source === 'onchain' ? '链上' : '发票系统'}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </>
-        )}
-      </div>
-    </main>
-  )
-}
-
-function StatCard({
-  label,
-  value,
-  color = 'text-gray-900',
-}: {
-  label: string
-  value: string
-  color?: string
-}) {
-  return (
-    <div className="rounded-xl bg-white p-4 shadow-sm">
-      <p className="text-xs uppercase tracking-wide text-gray-500">{label}</p>
-      <p className={`mt-1 text-2xl font-bold ${color}`}>{value}</p>
-    </div>
+          <p className="rounded-xl border border-indigo-500/20 bg-indigo-50 p-3 text-[11px] leading-relaxed text-indigo-800 dark:border-indigo-500/30 dark:bg-indigo-500/5 dark:text-indigo-200/90">
+            链上 PaymentRecord 为密文记录，仅持有 View Key 的商家可解密金额与付款人身份。
+            当前数据由已连接钱包（持有 View Key）解密后展示。
+          </p>
+        </>
+      )}
+    </>
   )
 }

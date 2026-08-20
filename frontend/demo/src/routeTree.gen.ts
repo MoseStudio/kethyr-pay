@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as PreviewRouteImport } from './routes/preview'
 import { Route as PayRouteImport } from './routes/pay'
 import { Route as MerchantRouteImport } from './routes/merchant'
 import { Route as CancelRouteImport } from './routes/cancel'
@@ -21,6 +22,11 @@ import { Route as MerchantInvoiceRouteImport } from './routes/merchant.invoice'
 import { Route as MerchantExportRouteImport } from './routes/merchant.export'
 import { Route as PayInvoiceIdStatusRouteImport } from './routes/pay.$invoiceId.status'
 
+const PreviewRoute = PreviewRouteImport.update({
+  id: '/preview',
+  path: '/preview',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PayRoute = PayRouteImport.update({
   id: '/pay',
   path: '/pay',
@@ -83,6 +89,7 @@ export interface FileRoutesByFullPath {
   '/cancel': typeof CancelRoute
   '/merchant': typeof MerchantRouteWithChildren
   '/pay': typeof PayRouteWithChildren
+  '/preview': typeof PreviewRoute
   '/merchant/export': typeof MerchantExportRoute
   '/merchant/invoice': typeof MerchantInvoiceRoute
   '/pay/$invoiceId': typeof PayInvoiceIdRouteWithChildren
@@ -94,6 +101,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/authorize': typeof AuthorizeRoute
   '/cancel': typeof CancelRoute
+  '/preview': typeof PreviewRoute
   '/merchant/export': typeof MerchantExportRoute
   '/merchant/invoice': typeof MerchantInvoiceRoute
   '/pay/$invoiceId': typeof PayInvoiceIdRouteWithChildren
@@ -108,6 +116,7 @@ export interface FileRoutesById {
   '/cancel': typeof CancelRoute
   '/merchant': typeof MerchantRouteWithChildren
   '/pay': typeof PayRouteWithChildren
+  '/preview': typeof PreviewRoute
   '/merchant/export': typeof MerchantExportRoute
   '/merchant/invoice': typeof MerchantInvoiceRoute
   '/pay/$invoiceId': typeof PayInvoiceIdRouteWithChildren
@@ -123,6 +132,7 @@ export interface FileRouteTypes {
     | '/cancel'
     | '/merchant'
     | '/pay'
+    | '/preview'
     | '/merchant/export'
     | '/merchant/invoice'
     | '/pay/$invoiceId'
@@ -134,6 +144,7 @@ export interface FileRouteTypes {
     | '/'
     | '/authorize'
     | '/cancel'
+    | '/preview'
     | '/merchant/export'
     | '/merchant/invoice'
     | '/pay/$invoiceId'
@@ -147,6 +158,7 @@ export interface FileRouteTypes {
     | '/cancel'
     | '/merchant'
     | '/pay'
+    | '/preview'
     | '/merchant/export'
     | '/merchant/invoice'
     | '/pay/$invoiceId'
@@ -161,10 +173,18 @@ export interface RootRouteChildren {
   CancelRoute: typeof CancelRoute
   MerchantRoute: typeof MerchantRouteWithChildren
   PayRoute: typeof PayRouteWithChildren
+  PreviewRoute: typeof PreviewRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/preview': {
+      id: '/preview'
+      path: '/preview'
+      fullPath: '/preview'
+      preLoaderRoute: typeof PreviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/pay': {
       id: '/pay'
       path: '/pay'
@@ -291,6 +311,7 @@ const rootRouteChildren: RootRouteChildren = {
   CancelRoute: CancelRoute,
   MerchantRoute: MerchantRouteWithChildren,
   PayRoute: PayRouteWithChildren,
+  PreviewRoute: PreviewRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
