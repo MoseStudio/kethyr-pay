@@ -1,7 +1,6 @@
-import { loadFont as loadGeist } from "@remotion/google-fonts/Geist";
+import { geist } from "../shared/fonts";
 import { Easing, interpolate, useCurrentFrame } from "remotion";
 
-const { fontFamily: geist } = loadGeist();
 
 const EASE = Easing.bezier(0.16, 1, 0.3, 1);
 

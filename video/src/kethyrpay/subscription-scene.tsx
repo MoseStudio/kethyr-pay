@@ -1,11 +1,9 @@
-import { loadFont as loadGeist } from "@remotion/google-fonts/Geist";
-import { loadFont as loadGeistMono } from "@remotion/google-fonts/GeistMono";
+import { geist, geistMono } from "../shared/fonts";
+
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
 
 import { SceneTitle } from "./scene-title";
 
-const { fontFamily: geist } = loadGeist();
-const { fontFamily: geistMono } = loadGeistMono();
 
 const EASE = Easing.bezier(0.16, 1, 0.3, 1);
 const SCENE_DURATION = 234;

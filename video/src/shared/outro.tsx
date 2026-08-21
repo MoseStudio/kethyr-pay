@@ -1,7 +1,6 @@
-import { loadFont as loadGeist } from "@remotion/google-fonts/Geist";
+import { geist } from "./fonts";
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
 
-const { fontFamily: geist } = loadGeist();
 
 export const Outro: React.FC<{
   brand?: string;

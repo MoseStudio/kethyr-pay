@@ -1,11 +1,9 @@
-import { loadFont as loadGeist } from "@remotion/google-fonts/Geist";
-import { loadFont as loadGeistMono } from "@remotion/google-fonts/GeistMono";
+import { geist, geistMono } from "./fonts";
+
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
 
 import { useTypewriter } from "./typewriter";
 
-const { fontFamily: geist } = loadGeist();
-const { fontFamily: geistMono } = loadGeistMono();
 
 const Dot: React.FC<{ color: string }> = ({ color }) => (
   <div
