@@ -6,21 +6,14 @@ import { Composition } from "remotion";
 import { Kethyrpay } from "./kethyrpay/composition";
 import { TOTAL_DURATION } from "./kethyrpay/timings";
 
-loadGeist({
+loadGeist("normal", {
   weights: ["400", "500", "600"],
   subsets: ["latin"],
-  display: "swap",
-  // remotion 4.0's typings lag behind the runtime option
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ignoreTooManyRequestsWarning: true,
-} as any)
-loadGeistMono({
+} as unknown as Parameters<typeof loadGeist>[1])
+loadGeistMono("normal", {
   weights: ["400", "500"],
   subsets: ["latin"],
-  display: "swap",
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ignoreTooManyRequestsWarning: true,
-} as any)
+} as unknown as Parameters<typeof loadGeistMono>[1])
 
 export const RemotionRoot: React.FC = () => (
   <Composition
