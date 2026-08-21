@@ -46,7 +46,7 @@ const CodeLine: React.FC<{
         background,
         borderRadius: 6,
         display: "flex",
-        height: 38,
+        height: 30,
         margin: "0 -12px",
         padding: "0 12px",
         position: "relative",
@@ -67,10 +67,10 @@ const CodeLine: React.FC<{
           style={{
             background: "#1F2937",
             display: "inline-block",
-            height: 26,
+            height: 20,
             marginLeft: 2,
             transform: "translateY(1px)",
-            width: 10,
+            width: 8,
           }}
         />
       )}
@@ -148,10 +148,10 @@ export const CodeWindow: React.FC<CodeWindowProps> = ({
         style={{
           color: "#374151",
           fontFamily: geistMono,
-          fontSize: 22,
+          fontSize: 18,
           fontVariantLigatures: "none",
-          lineHeight: 1.7,
-          padding: "28px 36px 36px",
+          lineHeight: 1.55,
+          padding: "20px 28px 24px",
         }}
       >
         {rendered.map((rl, i) => (

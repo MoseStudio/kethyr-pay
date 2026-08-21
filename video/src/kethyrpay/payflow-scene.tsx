@@ -123,13 +123,13 @@ export const PayflowScene: React.FC = () => {
       }}
     >
       <SceneTitle eyebrow="Payments" title="Real money. Real ZK. In the browser." />
-      <div style={{ alignItems: "center", display: "flex", gap: 52 }}>
+      <div style={{ alignItems: "center", display: "flex", gap: 48 }}>
         <CodeWindow
           budget={budget}
           filename="pay.ts"
           lines={tokenizeLines()}
           showActiveLine={frame < stateFrom}
-          width={760}
+          width={680}
         />
         <FlowPanel frame={Math.max(0, frame - stateFrom)} />
       </div>
