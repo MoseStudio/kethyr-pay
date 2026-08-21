@@ -1,4 +1,4 @@
-import { loadFont as loadGeist } from "@remotion/google-fonts/Geist";
+import { geist } from "../shared/fonts";
 import {
   AbsoluteFill,
   Easing,
@@ -14,7 +14,6 @@ import { tokenizeLines } from "./flow-code";
 import { FlowPanel } from "./flow-panel";
 import { FLOW, FLOW_SCHEDULE } from "./timings";
 
-const { fontFamily: geist } = loadGeist();
 
 const ENTER = 18;
 const EXIT = 16;
