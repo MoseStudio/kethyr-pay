@@ -40,7 +40,7 @@ const FIELDS: Field[] = [
   },
   {
     label: "invoice_id",
-    value: "field: 2043…",
+    value: "field: 4025408912…",
     tone: "#7C3AED",
   },
   {
@@ -51,7 +51,7 @@ const FIELDS: Field[] = [
   },
   {
     label: "amount",
-    value: "u64: 120500000",
+    value: "u64: 1500000 · 1.50 ALEO",
     tone: "#1F2937",
     badge: "private",
   },
@@ -189,7 +189,7 @@ export const PrivacyScene: React.FC = () => {
               padding: "3px 10px",
             }}
           >
-            pay_private_v2.aleo
+            pay_private_v3.aleo
           </span>
         </div>
         <div style={{ padding: "18px 24px 22px" }}>

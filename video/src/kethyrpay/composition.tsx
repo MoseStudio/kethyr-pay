@@ -20,8 +20,8 @@ export const Kethyrpay: React.FC = () => (
       <IntroScene
         command="npm i @kethyrpay/sdk"
         durationInFrames={TIMING.intro.duration}
-        tagline="privacy-first payments on Aleo"
-        version="v0.1"
+        tagline="pay_private_v3 · atomic ALEO · privacy-first"
+        version="v0.3"
       />
     </Sequence>
     <Sequence
