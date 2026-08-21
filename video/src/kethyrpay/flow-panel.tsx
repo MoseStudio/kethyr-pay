@@ -289,25 +289,24 @@ export const FlowPanel: React.FC<{ frame: number }> = ({ frame }) => (
         borderTop: "1px solid rgba(0,0,0,0.05)",
         color: "#9CA3AF",
         display: "flex",
-        flexWrap: "nowrap",
         fontFamily: geistMono,
-        fontSize: 12,
-        gap: 8,
+        fontSize: 11,
+        gap: 6,
         justifyContent: "space-between",
         letterSpacing: -0.1,
+        overflow: "hidden",
         paddingTop: 13,
-        whiteSpace: "nowrap",
       }}
     >
-      <span style={{ whiteSpace: "nowrap" }}>inv_00ea · 1.50 ALEO</span>
+      <span style={{ flexShrink: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>inv_00ea · 1.50 ALEO</span>
       <span
         style={{
           background: "rgba(14,116,144,0.12)",
           borderRadius: 999,
           color: "#0E7490",
           flexShrink: 0,
-          fontSize: 11,
-          padding: "2px 8px",
+          fontSize: 10,
+          padding: "2px 6px",
           whiteSpace: "nowrap",
         }}
       >
@@ -317,7 +316,7 @@ export const FlowPanel: React.FC<{ frame: number }> = ({ frame }) => (
         style={{
           color: "#059669",
           flexShrink: 0,
-          fontSize: 14,
+          fontSize: 11,
           whiteSpace: "nowrap",
         }}
       >
