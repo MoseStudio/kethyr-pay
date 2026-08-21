@@ -7,24 +7,15 @@
 // future USDC etc. switch only the currency string.
 
 export const FLOW_CODE = `import { KethyrPay } from "@kethyrpay/sdk";
-
 const pay = await KethyrPay.create();
 
-// merchant mints invoice to payer (single tx)
+// mint invoice to payer (single tx, owner=payer)
 await pay.mintInvoiceToPayer({
-  merchant: "aleo1cdsz2pd...",
-  payee: "aleo1payer...",
-  amount: "1.50",
+  merchant: "aleo1cdsz2pd...", payee: "aleo1payer...", amount: "1.50",
 });
-
 const intent = await pay.createPayment({
-  merchant: "aleo1cdsz2pd...",
-  amount: "1.50",
-  currency: "ALEO",
+  merchant: "aleo1cdsz2pd...", amount: "1.50", currency: "ALEO",
 });
-
-// real ZK proof generated in the browser
-// private keys never leave the wallet
-// pay_invoice atomic: transfer_private + receipts
-
+// ZK proof in browser — keys never leave wallet
+// pay_invoice atomic: transfer_private + receipts (1 tx)
 await pay.verifyPayment(intent.id);`;
