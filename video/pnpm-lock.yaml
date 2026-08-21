@@ -18,8 +18,8 @@ importers:
         specifier: 4.0.501
         version: 4.0.501(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@remotion/sfx':
-        specifier: 4.0.484
-        version: 4.0.484
+        specifier: 4.0.501
+        version: 4.0.501
       '@remotion/tailwind-v4':
         specifier: 4.0.501
         version: 4.0.501(@remotion/bundler@4.0.501(lightningcss@1.31.1)(postcss@8.5.26)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@rspack/core@1.7.11)(webpack@5.105.0(esbuild@0.28.1)(lightningcss@1.31.1)(postcss@8.5.26))
@@ -454,8 +454,8 @@ packages:
       react: '>=16.8.0'
       react-dom: '>=16.8.0'
 
-  '@remotion/sfx@4.0.484':
-    resolution: {integrity: sha512-uRTjOCDJ/MtGBAUVCJmz8JaB0OHzSK0IHcelWZOHEktw880aU3K7xH9GjZy3/aQJo64ct2DztY0495kAK3AUew==}
+  '@remotion/sfx@4.0.501':
+    resolution: {integrity: sha512-o/m8jpI9rGlD5dovUPP9xeNQoRt5UPedcBP3avrwFxKekZOeRrLn+TYXU6oQ33W18hrhhWceoM116oqvBR25Fw==}
 
   '@remotion/streaming@4.0.501':
     resolution: {integrity: sha512-BwBxX6HvEsWj4ieC12mRrKRBEeLAH2DnDF78xwg8TziP8DkcD0Wro0uoiNJo4SqSXoucBeS8X3D1lpx0XnAs3Q==}
@@ -1974,7 +1974,7 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  '@remotion/sfx@4.0.484': {}
+  '@remotion/sfx@4.0.501': {}
 
   '@remotion/streaming@4.0.501': {}
 
