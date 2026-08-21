@@ -26,9 +26,9 @@ const rise = (frame: number, at: number, dist = 14, dur = 18): number =>
   });
 
 const ROWS = [
-  { currency: "USD", date: "2026-08-01", amount: "12.50", payer: "aleo1…8f3k" },
-  { currency: "aleo", date: "2026-08-05", amount: "18.20", payer: "aleo1…2b7q" },
-  { currency: "USD", date: "2026-08-12", amount: "120.50", payer: "aleo1…9m4d" },
+  { currency: "ALEO", date: "2026-08-01", amount: "1.50", payer: "aleo1…8f3k" },
+  { currency: "ALEO", date: "2026-08-05", amount: "2.00", payer: "aleo1…2b7q" },
+  { currency: "ALEO", date: "2026-08-12", amount: "1.50", payer: "aleo1…9m4d" },
 ];
 
 const TableRow: React.FC<{
@@ -58,19 +58,16 @@ const TableRow: React.FC<{
       <span style={{ color: "#9CA3AF", width: 120 }}>{row.date}</span>
       <span style={{ alignItems: "center", display: "flex", gap: 8, width: 150 }}>
         <span
-          style={{
-            background:
-              row.currency === "USD"
-                ? "rgba(5,150,105,0.12)"
-                : "rgba(14,116,144,0.12)",
-            borderRadius: 999,
-            color: row.currency === "USD" ? "#047857" : "#0E7490",
-            fontSize: 11,
-            padding: "2px 8px",
-          }}
-        >
-          {row.currency}
-        </span>
+            style={{
+              background: "rgba(14,116,144,0.12)",
+              borderRadius: 999,
+              color: "#0E7490",
+              fontSize: 11,
+              padding: "2px 8px",
+            }}
+          >
+            {row.currency}
+          </span>
         <span>+{row.amount}</span>
       </span>
       <span style={{ color: "#0E7490" }}>{row.payer}</span>

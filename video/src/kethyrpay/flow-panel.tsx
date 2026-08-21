@@ -19,12 +19,14 @@ export interface FlowState {
   subtitle: string;
 }
 
-// The four beats of the payment lifecycle, in order.
+// Three beats of the v3 atomic payment lifecycle, in order.
+// v3 settles in a single pay_invoice transaction (transfer_private +
+// InvoiceRecord consume + dual receipts); no separate public transfer.
 export const STATES: FlowState[] = [
   {
-    id: "create",
-    title: "Create payment",
-    subtitle: "merchant + amount → intent",
+    id: "mint",
+    title: "Mint to payer",
+    subtitle: "mint_to_payer · owner = payer",
   },
   {
     id: "prove",
@@ -32,14 +34,9 @@ export const STATES: FlowState[] = [
     subtitle: "ZK proof · keys never leave",
   },
   {
-    id: "confirm",
-    title: "Confirm on-chain",
-    subtitle: "credits.aleo::transfer_public",
-  },
-  {
-    id: "consume",
-    title: "Consume invoice",
-    subtitle: "pay_invoice · replay-proof",
+    id: "atomic",
+    title: "Atomic pay_invoice",
+    subtitle: "transfer_private + receipts · 1 tx",
   },
 ];
 
@@ -271,7 +268,7 @@ export const FlowPanel: React.FC<{ frame: number }> = ({ frame }) => (
           padding: "3px 10px",
         }}
       >
-        pay_private_v2
+        pay_private_v3
       </span>
     </div>
     <div
@@ -302,7 +299,7 @@ export const FlowPanel: React.FC<{ frame: number }> = ({ frame }) => (
         paddingTop: 13,
       }}
     >
-      <span>inv_8f3k · 120.50 USD</span>
+      <span>inv_00ea · 1.50 ALEO</span>
       <span
         style={{
           background: "rgba(14,116,144,0.12)",
@@ -312,7 +309,7 @@ export const FlowPanel: React.FC<{ frame: number }> = ({ frame }) => (
           padding: "2px 8px",
         }}
       >
-        USD · aleo
+        ALEO · credits.aleo
       </span>
       <span
         style={{
