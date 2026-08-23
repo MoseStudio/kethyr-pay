@@ -12,7 +12,7 @@
 
 <video src="https://github.com/MoseStudio/kethyr-pay/raw/main/video/out/Kethyrpay.mp4" controls width="100%" poster="https://github.com/MoseStudio/kethyr-pay/raw/main/video/out/poster.jpg"></video>
 
-[![KethyrPay promo video](https://github.com/MoseStudio/kethyr-pay/raw/main/video/out/poster.jpg)](https://github.com/user-attachments/assets/3a865b34-81a6-40e8-bacf-0945377fa3d7)
+[![KethyrPay promo video](https://github.com/MoseStudio/kethyr-pay/raw/main/video/out/poster.jpg)](https://github.com/user-attachments/assets/d3f8729c-cce1-4d7c-b256-6e8a462c2eff)
 
 ---
 
@@ -50,6 +50,8 @@ Connect wallet → merchant mints invoice (mint_to_payer, owner = payer)
 → payer prepares a private ALEO record (transfer_public_to_private) → pay (pay_invoice atomic: transfer_private + consume InvoiceRecord + dual receipts, single tx, fully atomic)
 → on-chain confirmation (verifyPayment) → merchant dashboard details → View Key statement export
 ```
+
+[![Demo 视频](https://github.com/MoseStudio/kethyr-pay/raw/main/video/out/poster.jpg)](https://github.com/user-attachments/assets/5431aa34-fab3-4fbc-86f3-bbd17d61bfb6)
 
 > **Security invariant**: v3 is fully **atomic** — `transfer_private` + invoice consume + dual receipts execute in order within a single transaction; any failure reverts the whole tx, **eliminating any intermediate state**.
 
