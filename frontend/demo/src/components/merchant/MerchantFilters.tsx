@@ -14,7 +14,7 @@
 
 import { Link } from '@tanstack/react-router'
 import { Calendar, ChevronDown, Share2 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { useAleoWallet } from '@/hooks/useAleoWallet.ts'
 import { truncateAddress } from '@/lib/checkout.ts'
@@ -115,7 +115,15 @@ function FilterSelect({
 }
 
 function DateButton() {
-  const label = formatToday()
+  // The server and browser can cross midnight between render and hydration.
+  // Resolve the date after hydration so the title is deterministic on the
+  // initial render and still reflects the user's local calendar day.
+  const [label, setLabel] = useState<string>()
+
+  useEffect(() => {
+    setLabel(formatToday())
+  }, [])
+
   return (
     <button
       type="button"

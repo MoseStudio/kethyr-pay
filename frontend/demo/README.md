@@ -24,6 +24,27 @@ The app will start on `http://localhost:3000` (or the next available port if 300
 pnpm build
 ```
 
+## Deploying to Cloudflare Workers
+
+The demo uses TanStack Start's Cloudflare Vite plugin and is configured as a
+Workers application in `wrangler.jsonc`. Authenticate with Wrangler once, then
+run the production deployment from this directory:
+
+```bash
+pnpm cf-typegen
+pnpm deploy
+```
+
+To run the built Worker locally with the same Cloudflare runtime:
+
+```bash
+pnpm build
+pnpm cf:dev
+```
+
+Set any environment variables or bindings in `wrangler.jsonc` before deploying.
+The current app does not require Cloudflare bindings.
+
 ## Directory Structure
 
 ```
@@ -32,6 +53,7 @@ demo/
 ├── pnpm-lock.yaml        # pnpm lockfile
 ├── tsconfig.json         # TypeScript configuration (strict mode enabled)
 ├── vite.config.ts        # Vite + TanStack Start + Tailwind CSS configuration
+├── wrangler.jsonc        # Cloudflare Workers deployment configuration
 ├── tsr.config.json       # TanStack Router generator target
 ├── public/               # Static assets
 ├── src/
