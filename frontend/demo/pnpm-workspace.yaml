@@ -2,6 +2,7 @@ allowBuilds:
   '@swc/core': true
   core-js: true
   esbuild: true
+  workerd: true
 minimumReleaseAgeExclude:
   - '@tanstack/router-cli@1.167.28'
   - '@tanstack/router-core@1.171.22'
