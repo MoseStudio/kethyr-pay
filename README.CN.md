@@ -12,7 +12,7 @@
 
 <video src="https://github.com/MoseStudio/kethyr-pay/raw/main/video/out/Kethyrpay.mp4" controls width="100%" poster="https://github.com/MoseStudio/kethyr-pay/raw/main/video/out/poster.jpg"></video>
 
-[![KethyrPay 宣传视频](https://github.com/MoseStudio/kethyr-pay/raw/main/video/out/poster.jpg)](https://github.com/user-attachments/assets/3a865b34-81a6-40e8-bacf-0945377fa3d7)
+[![KethyrPay 宣传视频](https://github.com/MoseStudio/kethyr-pay/raw/main/video/out/poster.jpg)](https://github.com/user-attachments/assets/d3f8729c-cce1-4d7c-b256-6e8a462c2eff)
 
 ---
 
@@ -50,6 +50,8 @@ KethyrPay 是一个**开发者优先（Developer-first）、默认隐私、兼�
 → 付款人准备 private ALEO record (transfer_public_to_private) → 支付 (pay_invoice 原子：transfer_private + 消费 InvoiceRecord + 双 Receipt，单笔交易，任一步失败整笔回滚)
 → 链上确认 (verifyPayment) → 商家后台收款明细 → View Key 账期导出
 ```
+
+[![Demo 视频](https://github.com/MoseStudio/kethyr-pay/raw/main/video/out/poster.jpg)](https://github.com/user-attachments/assets/5431aa34-fab3-4fbc-86f3-bbd17d61bfb6)
 
 > **安全设计**：v3 采用**单笔交易原子结算**——`transfer_private` 转移 ALEO、消费 InvoiceRecord、产出双 Receipt 在同一笔交易内顺序执行；任一步失败整笔 revert，**杜绝任何中间态**。
 
