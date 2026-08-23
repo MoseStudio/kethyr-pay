@@ -12,7 +12,7 @@
 
 <video src="https://github.com/MoseStudio/kethyr-pay/raw/main/video/out/Kethyrpay.mp4" controls width="100%" poster="https://github.com/MoseStudio/kethyr-pay/raw/main/video/out/poster.jpg"></video>
 
-[![KethyrPay promo video](https://github.com/MoseStudio/kethyr-pay/raw/main/video/out/poster.jpg)](https://github.com/MoseStudio/kethyr-pay/raw/main/video/out/Kethyrpay.mp4)
+[![KethyrPay promo video](https://github.com/MoseStudio/kethyr-pay/raw/main/video/out/poster.jpg)](https://github.com/user-attachments/assets/3a865b34-81a6-40e8-bacf-0945377fa3d7)
 
 ---
 
