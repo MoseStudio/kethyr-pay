@@ -42,6 +42,7 @@ experiments/*/dist/
 
 # Agent tooling (auto-generated, not part of the repo)
 .commandcode/
+.agents/skills/
 
 
 
