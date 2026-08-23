@@ -25,7 +25,7 @@ export const Route = createRootRoute({
     meta: [
       { charSet: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-      { title: 'KethyrPay Demo' },
+      { title: 'KethyrPay — Privacy-first payment gateway on Aleo' },
     ],
     links: [{ rel: 'stylesheet', href: appCss }],
   }),
