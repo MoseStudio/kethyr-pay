@@ -1,4 +1,5 @@
 import { createContext, useContext } from 'react'
+import { KethyrPay, type WalletAdapter } from '@kethyrpay/sdk'
 
 export interface AleoWallet {
   /** Whether the wallet adapter has finished loading on the client */
@@ -59,6 +60,43 @@ const AleoWalletContext = createContext<AleoWallet>(defaultWallet)
 
 export function useAleoWallet(): AleoWallet {
   return useContext(AleoWalletContext)
+}
+
+/** Adapt the Demo wallet bridge to the SDK's high-level payment client. */
+export async function createDemoKethyrPay(wallet: AleoWallet): Promise<KethyrPay> {
+  const adapter: WalletAdapter = {
+    name: 'Demo Wallet',
+    get connected() {
+      return wallet.connected
+    },
+    get publicKey() {
+      return wallet.publicKey
+    },
+    connect: wallet.connect,
+    disconnect: wallet.disconnect,
+    signTransaction: async (transaction) => {
+      const jobId = await wallet.signTransaction(transaction)
+      if (!jobId) throw new Error('Wallet did not return a transaction ID')
+      if (!String(jobId).startsWith('shield_')) return String(jobId)
+
+      const deadline = Date.now() + 60_000
+      while (Date.now() < deadline) {
+        const result = await wallet.transactionStatus(String(jobId))
+        if (result.transactionId?.startsWith('at1')) return result.transactionId
+        if (result.status === 'failed' || result.status === 'rejected' || result.error) {
+          throw new Error(result.error ?? `Wallet transaction ${result.status}`)
+        }
+        await new Promise((resolve) => setTimeout(resolve, 500))
+      }
+      throw new Error('Timed out waiting for the wallet transaction')
+    },
+    requestRecords: wallet.requestRecords,
+  }
+
+  return KethyrPay.create({
+    wallet: () => adapter,
+    skipWasmInit: true,
+  })
 }
 
 export const AleoWalletProvider = AleoWalletContext.Provider

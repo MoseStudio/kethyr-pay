@@ -27,10 +27,10 @@ import {
   useNavigate,
 } from '@tanstack/react-router'
 import type { PaymentIntent } from '@kethyrpay/sdk'
-import { createPayInvoiceTransaction, creditsToMicrocredits, paymentIdToField } from '@kethyrpay/sdk'
+import { creditsToMicrocredits, paymentIdToField } from '@kethyrpay/sdk'
 
 import { CheckoutModal } from '@/components/CheckoutModal.tsx'
-import { useAleoWallet } from '@/hooks/useAleoWallet.ts'
+import { createDemoKethyrPay, useAleoWallet } from '@/contexts/AleoWalletContext.tsx'
 import { usePerformance } from '@/hooks/usePerformance.ts'
 import {
   parseCreditsRecord,
@@ -110,6 +110,7 @@ function CheckoutPage() {
   const search = Route.useSearch()
   const navigate = useNavigate()
 
+  const wallet = useAleoWallet()
   const {
     loaded: walletLoaded,
     connected,
@@ -117,10 +118,8 @@ function CheckoutPage() {
     publicKey,
     connect: connectWallet,
     disconnect: disconnectWallet,
-    signTransaction,
     requestRecords,
-    transactionStatus,
-  } = useAleoWallet()
+  } = wallet
   const { startPhase, endPhase } = usePerformance()
 
   // ---- 数据来源：demo 参数优先，否则走后端发票 API（012） ----
@@ -233,49 +232,6 @@ function CheckoutPage() {
         ),
       ])
 
-    /** 签名交易并轮询确认链上成功，返回链上交易 ID（at1...）。失败抛错。 */
-    const signAndConfirm = async (
-      label: string,
-      transaction: unknown,
-      timeoutMs = 60_000,
-    ): Promise<string> => {
-      const jobId = await withTimeout(
-        Promise.resolve(signTransaction(transaction) as Promise<unknown>),
-        60_000,
-        `${label} 钱包签名`,
-      )
-      if (!jobId) {
-        throw new Error(`${label} 签名失败：未返回交易 ID（钱包可能取消了签名）。`)
-      }
-      console.log(`[kethyrpay:checkout] ${label} signed, jobId =`, jobId)
-
-      // Shield 返回 job ID（shield_...），轮询 transactionStatus 拿链上交易 ID
-      if (!/^shield_/.test(String(jobId))) return String(jobId)
-      const deadline = Date.now() + timeoutMs
-      let lastError: unknown = null
-      while (Date.now() < deadline) {
-        try {
-          const res = await transactionStatus(String(jobId))
-          console.log(`[kethyrpay:checkout] ${label} status`, res)
-          if (res.transactionId && /^at1/.test(res.transactionId)) {
-            return res.transactionId
-          }
-          if (res.status === 'failed' || res.status === 'rejected' || res.error) {
-            throw new Error(`${label} 链上失败：${res.error ?? res.status}`)
-          }
-          lastError = null
-        } catch (err) {
-          if (err instanceof Error && /链上失败/.test(err.message)) throw err
-          lastError = err
-        }
-        await new Promise((r) => setTimeout(r, 3000))
-      }
-      throw new Error(
-        `${label} 确认超时（${timeoutMs / 1000}s 内未上链）。` +
-          (lastError ? ` 最后错误：${String(lastError)}` : ''),
-      )
-    }
-
     try {
       if (!publicKey) {
         throw new Error('钱包未连接：无法定位付款人记录。')
@@ -359,14 +315,7 @@ function CheckoutPage() {
       if (sanitizedInvoice !== ownedInvoice.plaintext) {
         console.log('[kethyrpay:checkout] sanitized InvoiceRecord plaintext (removed extra fields / normalized _nonce/_version)')
       }
-      const payInvoiceTx = createPayInvoiceTransaction({
-        invoiceId: expectedField,
-        amount: intent.amount,
-        merchant: intent.merchant,
-        invoiceRecord: sanitizedInvoice,
-        token: tokenPlaintext,
-        senderCiphertext: '0group',
-      })
+      const pay = await createDemoKethyrPay(wallet)
       console.log('[kethyrpay:checkout] v3 atomic pay_invoice ready', {
         owner: ownedInvoice.owner,
         invoiceId: ownedInvoice.invoiceId,
@@ -378,12 +327,18 @@ function CheckoutPage() {
       // 4) 单笔交易签名广播（v3 atomic：credits.aleo::transfer_private +
       //    消费 InvoiceRecord + 双 Receipt 在同一笔交易内完成）。
       startPhase('checkout-prove')
-      console.log('[kethyrpay:checkout] transaction inputs before sign', {
-        program: (payInvoiceTx as { program?: string }).program,
-        function: (payInvoiceTx as { function?: string }).function,
-        inputs: (payInvoiceTx as { inputs?: unknown[] }).inputs,
-      })
-      const payTxId = await signAndConfirm('pay_invoice', payInvoiceTx)
+      const payTxId = await withTimeout(
+        pay.payInvoice({
+          invoiceId: expectedField,
+          amount: intent.amount,
+          merchant: intent.merchant,
+          invoiceRecord: sanitizedInvoice,
+          token: tokenPlaintext,
+          senderCiphertext: '0group',
+        }),
+        60_000,
+        'pay_invoice 钱包签名',
+      )
       console.log('[kethyrpay:checkout] pay_invoice confirmed on chain:', payTxId)
       endPhase('checkout-prove')
 

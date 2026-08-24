@@ -1,55 +1,199 @@
 # @kethyrpay/sdk
 
-KethyrPay 最小 SDK（Hackathon ALEO-MVP-006/007/008）：TypeScript + Vite 构建，产出 ESM + 类型声明。
+Official TypeScript SDK for integrating KethyrPay Aleo payments into web
+applications. The package is distributed as an ESM library with TypeScript
+declarations and keeps the Aleo runtime dependencies as peer dependencies so
+the host application controls their versions.
 
-- **WASM 初始化**：封装 `@provablehq/sdk` 的 `initializeWasm()` + `initThreadPool(4)`，幂等
-- **钱包适配器**：框架无关抽象（connect / disconnect / signTransaction / requestRecords / publicKey / connected），Shield 优先（client-only 动态加载），内置内存钱包便于测试
-- **KethyrPay 主类**：`static create()` 一次性完成 SDK / WASM / 钱包初始化
-- **createPayment（ALEO-MVP-007）**：生成 `PaymentIntent`（发票 ID / 支付链接 / 过期时间），并携带 `pay_invoice` 交易参数
-- **verifyPayment（ALEO-MVP-008）**：轮询 Testnet RPC 确认交易，返回 pending / confirmed / failed 状态机（端点可配置）
-- **合约 helpers**：移植自 POC `contract.ts`（地址校验、credits 转换、u64/u32 编码、交易选项构造等）
+> **Status:** The SDK is currently an early release (`0.1.1`) intended for
+> Testnet integrations. Review the API and network configuration before using
+> it in production.
 
-## 安装
+## Features
+
+- Idempotent Aleo SDK and WASM initialization.
+- Framework-agnostic wallet adapter interface.
+- Shield Wallet adapter with client-only loading.
+- In-memory wallet adapter for development and tests.
+- Invoice-to-payer minting and atomic `pay_invoice` transaction helpers.
+- Payment intent creation and Testnet payment verification.
+- Helpers for Aleo addresses, credits, records, and transaction options.
+
+## Installation
 
 ```bash
 pnpm add @kethyrpay/sdk
-# peer 依赖（宿主应用需自行安装）：
-pnpm add @provablehq/sdk@^0.11.6 @provablehq/aleo-types @provablehq/aleo-wallet-adaptor-core @provablehq/aleo-wallet-adaptor-shield
+pnpm add @provablehq/sdk@^0.11.6 @provablehq/aleo-types \
+  @provablehq/aleo-wallet-adaptor-core \
+  @provablehq/aleo-wallet-adaptor-shield
 ```
 
-## 最小示例
+The `@provablehq/aleo-wallet-adaptor-shield` peer dependency is optional when
+using a different wallet adapter or the in-memory adapter.
+
+## Quick start
+
+The current v3 payment flow separates invoice delivery, private proving, and
+settlement:
+
+1. The merchant creates a `PaymentIntent`, then signs `mint_to_payer` with the
+   intent's invoice ID to create an `InvoiceRecord` owned by the payer.
+2. The checkout page obtains the payer's invoice and credits records from the
+   wallet.
+3. The wallet creates a local ZK proof and signs one atomic `pay_invoice`
+   transaction.
+4. The status page polls the Aleo Testnet RPC using the submitted transaction
+   ID.
+
+The SDK provides high-level `mintInvoiceToPayer()` and `payInvoice()` methods
+for this flow. Both methods delegate to the same transaction builders used by
+the hosted Demo and submit through the connected wallet.
+
+For a browser checkout, initialize the SDK on the client and connect the
+wallet before signing:
 
 ```ts
 import { KethyrPay } from '@kethyrpay/sdk'
 
-// 初始化 SDK + WASM + Shield 钱包适配器
+// Browser only: the default adapter loads Shield Wallet client-side.
 const kethyrPay = await KethyrPay.create({ autoConnect: true })
-const buyer = kethyrPay.getPublicKey() // aleo1...
 
-// 创建支付意图（ALEO-MVP-007）
 const intent = await kethyrPay.createPayment({
   amount: '1.5',
   merchant: 'aleo1...merchant',
 })
-// → { invoice_id, amount, merchant, expires_at, payment_url, transaction }
-// intent.transaction 可直接交给钱包 signTransaction（pay_invoice）
 
-// 校验支付状态（ALEO-MVP-008）
-const status = await kethyrPay.verifyPayment(intent.invoice_id, { timeoutMs: 60_000 })
-// → { status: 'pending' | 'confirmed' | 'failed', ... }
+// These records are obtained from the payer wallet after mint_to_payer.
+const transactionId = await kethyrPay.payInvoice({
+  invoiceId: intent.invoice_id,
+  amount: intent.amount,
+  merchant: intent.merchant,
+  invoiceRecord: payerInvoiceRecord,
+  token: payerCreditsRecord,
+  senderCiphertext: payerSenderCiphertext,
+})
+
+const status = await kethyrPay.verifyPayment(intent.invoice_id, {
+  transactionId,
+  expectedAmount: intent.amount,
+  timeoutMs: 60_000,
+})
 ```
 
-> `verifyPayment` 默认轮询 `https://api.testnet.aleo.org`（`KethyrPayOptions.rpcEndpoint` 可覆盖）。
+`createPayment` returns a `PaymentIntent` containing the invoice ID, payment
+URL, expiry, and transaction parameters. The transaction returned directly by
+`createPayment` is a convenient intent/demo payload; a real v3 settlement must
+include the payer's `InvoiceRecord` and `credits.aleo::credits` record as shown
+above. `verifyPayment` polls the Aleo Testnet RPC endpoint and returns
+`pending`, `confirmed`, or `failed`.
+The default endpoint is `https://api.testnet.aleo.org`; configure
+`KethyrPayOptions.rpcEndpoint` to use another endpoint.
 
-## 开发
+### Merchant: mint an invoice to the payer
+
+The merchant must first create the invoice record with `owner = payer`. The
+preferred v3 path is one `mint_to_payer` transaction:
+
+```ts
+import { KethyrPay } from '@kethyrpay/sdk'
+
+const pay = await KethyrPay.create({ autoConnect: true })
+const merchant = pay.getPublicKey()!
+const intent = await pay.createPayment({
+  merchant,
+  amount: '1.5',
+})
+await pay.mintInvoiceToPayer({
+  merchant,
+  payee: 'aleo1...payer',
+  amount: intent.amount,
+  invoiceId: intent.invoice_id,
+})
+```
+
+After the transaction is confirmed and the payer wallet can see the
+`InvoiceRecord`, the payer can execute the atomic `pay_invoice` flow above.
+The legacy `create_invoice` plus `transfer_invoice` two-transaction path is
+still exported for compatibility, but should not be used for new integrations.
+For lower-level integrations, the underlying
+`mintInvoiceToPayerTransaction` and `createPayInvoiceTransaction` builders
+remain available.
+
+### Server-side payment intent creation
+
+Invoice creation only validates input and constructs transaction parameters;
+it does not require a wallet signature. A server can use the memory adapter and
+skip WASM initialization:
+
+```ts
+import {
+  KethyrPay,
+  createMemoryWalletAdapter,
+} from '@kethyrpay/sdk'
+
+const kethyrPay = await KethyrPay.create({
+  wallet: createMemoryWalletAdapter,
+  skipWasmInit: true,
+  paymentBaseUrl: 'https://pay.example.com',
+})
+
+const intent = await kethyrPay.createPayment({
+  amount: '1.5',
+  merchant: 'aleo1...merchant',
+  expiresInMs: 30 * 60 * 1000,
+})
+```
+
+Persist the returned intent on the server and pass it to the checkout page.
+Never expose private keys or wallet credentials to the server. The browser
+wallet must sign and submit the transaction.
+
+### Confirming a submitted transaction
+
+After the wallet returns a transaction ID, pass the invoice ID to
+`verifyPayment` from a client or server status endpoint:
+
+```ts
+const status = await kethyrPay.verifyPayment(intent.invoice_id, {
+  transactionId: 'at1...transaction-id',
+  expectedAmount: intent.amount,
+  timeoutMs: 60_000,
+  intervalMs: 2_000,
+})
+```
+
+When a server-side status endpoint does not need WASM or a browser wallet, use
+`skipWasmInit: true` together with `wallet: createMemoryWalletAdapter`, and
+provide the transaction lookup through the configured RPC endpoint.
+
+## Public API
+
+The main exports include:
+
+- `KethyrPay` and `KethyrPayOptions`
+- `PaymentIntent`, `PaymentStatus`, and payment parameter types
+- `WalletAdapter`, `createShieldAdapter`, and `createMemoryWalletAdapter`
+- `mintInvoiceToPayer()` and `payInvoice()` for the complete v3 payment flow
+- `createPayInvoiceTransaction` and payment verification helpers
+- Aleo account, address, record, encoding, and transaction helpers
+
+See the generated TypeScript declarations in `dist/` for the complete
+signature reference.
+
+## Development
 
 ```bash
 pnpm install
-pnpm build      # vite 库模式 → dist/index.js (ESM) + tsc → dist/*.d.ts
-pnpm test       # vitest 单测
-pnpm typecheck  # tsc --noEmit
+pnpm build
+pnpm test
+pnpm typecheck
 ```
 
-## 公共 API
+`npm publish` runs the build and test suite automatically through the
+`prepublishOnly` lifecycle script. The package is published under the MIT
+license; see [`LICENSE`](./LICENSE).
 
-`initAleoSDK` / `createAccount` / `AleoAccount` · `PROGRAM_ID` / `DEFAULT_FEE` / `isValidAleoAddress` / `creditsToMicrocredits` / `microcreditsToCredits` / `encodeAddress` / `encodeU64` / `encodeU32` / `stripVisibilitySuffix` / `parsePaymentRecord` / `cleanRecordInput` / `createTransactionOptions` / `createPayInvoiceTransaction` · `WalletAdapter` / `createShieldAdapter` / `createMemoryWalletAdapter` / `walletAdapters` · `KethyrPay` / `KethyrPayOptions` / `generateInvoiceId` / `normalizeAmount` / `validateMerchant` · `pollPaymentStatus` / `createNetworkFetchTransaction` / `isTransactionConfirmed` / `extractPaymentReceipt` / `paymentIdToField` / `normalizePaymentError` · `PaymentIntent` / `PaymentStatus` / `CreatePaymentParams` / `VerifyPaymentOptions`
+## Links
+
+- Repository: https://github.com/MoseStudio/kethyr-pay
+- Issues: https://github.com/MoseStudio/kethyr-pay/issues

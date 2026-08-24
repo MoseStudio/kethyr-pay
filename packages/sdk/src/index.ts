@@ -56,6 +56,8 @@ export {
   normalizeAmount,
   validateMerchant,
   type KethyrPayOptions,
+  type MintInvoiceToPayerParams,
+  type PayInvoiceParams,
 } from './kethyrpay.js'
 
 // verifyPayment 轮询核心（ALEO-MVP-008）

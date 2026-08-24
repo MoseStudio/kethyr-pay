@@ -99,6 +99,41 @@ describe('KethyrPay 主类', () => {
     expect(kethyrPay.getPublicKey()).toBeNull()
   })
 
+  it('mintInvoiceToPayer 通过钱包提交 mint_to_payer', async () => {
+    const kethyrPay = await KethyrPay.create({
+      skipWasmInit: true,
+      wallet: makeMemoryWallet,
+      autoConnect: true,
+    })
+
+    const transactionId = await kethyrPay.mintInvoiceToPayer({
+      merchant: MERCHANT,
+      payee: 'aleo1' + 'c'.repeat(58),
+      amount: '1.5',
+      invoiceId: '123456',
+    })
+
+    expect(transactionId).toMatch(/^at1/)
+  })
+
+  it('payInvoice 构造并通过钱包提交原子 pay_invoice', async () => {
+    const kethyrPay = await KethyrPay.create({
+      skipWasmInit: true,
+      wallet: makeMemoryWallet,
+      autoConnect: true,
+    })
+
+    const transactionId = await kethyrPay.payInvoice({
+      invoiceId: '123456',
+      amount: '1.5',
+      merchant: MERCHANT,
+      invoiceRecord: '{ owner: aleo1cccc }',
+      token: '{ owner: aleo1cccc }',
+    })
+
+    expect(transactionId).toMatch(/^at1/)
+  })
+
   it('createPayment 返回完整 PaymentIntent（含交易参数）', async () => {
     const kethyrPay = await KethyrPay.create({
       skipWasmInit: true,

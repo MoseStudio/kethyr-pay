@@ -822,6 +822,7 @@ packages:
 
   '@kethyrpay/sdk@file:../../packages/sdk':
     resolution: {directory: ../../packages/sdk, type: directory}
+    engines: {node: '>=18'}
     peerDependencies:
       '@provablehq/aleo-types': ^1.0.1
       '@provablehq/aleo-wallet-adaptor-core': ^1.0.1
