@@ -20,13 +20,12 @@ import { createFileRoute } from '@tanstack/react-router'
 import { Wallet } from 'lucide-react'
 import {
   isValidAleoAddress,
-  mintInvoiceToPayerTransaction,
   paymentIdToField,
 } from '@kethyrpay/sdk'
 
 import { MerchantTopbar } from '@/components/merchant/MerchantTopbar.tsx'
 import { ConnectWalletButton } from '@/components/ConnectWalletButton.tsx'
-import { useAleoWallet } from '@/hooks/useAleoWallet.ts'
+import { createDemoKethyrPay, useAleoWallet } from '@/contexts/AleoWalletContext.tsx'
 import { usePerformance } from '@/hooks/usePerformance.ts'
 import { generateDemoInvoiceId } from '@/lib/payment-intents.ts'
 
@@ -41,7 +40,8 @@ type MintState =
   | { kind: 'error'; message: string }
 
 function MerchantInvoice() {
-  const { loaded, connected, publicKey, signTransaction } = useAleoWallet()
+  const wallet = useAleoWallet()
+  const { loaded, connected, publicKey } = wallet
   const { startPhase, endPhase } = usePerformance()
 
   const [amount, setAmount] = useState('1.5')
@@ -54,11 +54,11 @@ function MerchantInvoice() {
   const handleMint = async () => {
     console.log('[kethyrpay:invoice] handleMint start', {
       merchant,
-      hasSign: typeof signTransaction,
+      hasSign: typeof wallet.signTransaction,
       amount,
       payee,
     })
-    if (!merchant || !signTransaction) return
+    if (!merchant || !wallet.signTransaction) return
     setError(null)
 
     const amountNum = Number(amount)
@@ -77,18 +77,17 @@ function MerchantInvoice() {
     const invoiceIdField = paymentIdToField(invoiceId)
     const payeeAddr = payee.trim()
     // mint_to_payer 单笔交易：owner 直接写为 payee，无需扫描 + 二次签名。
-    const tx = mintInvoiceToPayerTransaction({
-      merchant,
-      payee: payeeAddr,
-      amount: Number(amount).toFixed(6),
-      invoiceId: invoiceIdField,
-    })
-
     setState({ kind: 'minting' })
     try {
       startPhase('invoice-mint')
-      console.log('[kethyrpay:invoice] signing mint_to_payer', tx)
-      const mintTxRaw = await signTransaction(tx)
+      console.log('[kethyrpay:invoice] signing mint_to_payer')
+      const pay = await createDemoKethyrPay(wallet)
+      const mintTxRaw = await pay.mintInvoiceToPayer({
+        merchant,
+        payee: payeeAddr,
+        amount: Number(amount).toFixed(6),
+        invoiceId: invoiceIdField,
+      })
       endPhase('invoice-mint')
       const mintTx = String(mintTxRaw)
       console.log('[kethyrpay:invoice] mint_to_payer signed, tx =', mintTx)

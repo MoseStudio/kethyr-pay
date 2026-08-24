@@ -3,8 +3,9 @@
  *
  * - `KethyrPay.create()`：静态工厂，幂等初始化 Aleo WASM SDK + 创建钱包适配器
  * - `connectWallet()` / `disconnectWallet()` / `getPublicKey()`：钱包生命周期
- * - `createPayment()` / `verifyPayment()`：ALEO-MVP-007 / 008 的**类型签名占位**，
- *   当前抛 NotImplementedError，后续 wave 直接填充实现（依赖 contract.ts 的编码 helpers）
+ * - `mintInvoiceToPayer()` / `payInvoice()`：高阶封装，分别提交发票交付与
+ *   v3 原子支付交易
+ * - `createPayment()` / `verifyPayment()`：创建 PaymentIntent 并轮询支付状态
  */
 
 import { initAleoSDK } from './aleo.js'
@@ -17,6 +18,7 @@ import {
   microcreditsToCredits,
   encodeAddress,
   createPayInvoiceTransaction,
+  mintInvoiceToPayerTransaction,
 } from './contract.js'
 import {
   createNetworkFetchTransaction,
@@ -92,6 +94,28 @@ export interface KethyrPayOptions {
   rpcEndpoint?: string
   /** 测试/高级用法：自定义链上交易查询函数（默认 AleoNetworkClient） */
   fetchTransaction?: FetchTransaction
+}
+
+/** Parameters for the merchant-side one-transaction invoice delivery. */
+export interface MintInvoiceToPayerParams {
+  merchant: string
+  payee: string
+  amount: string
+  invoiceId: string
+  fee?: number
+  privateFee?: boolean
+}
+
+/** Parameters for the payer-side atomic v3 settlement. */
+export interface PayInvoiceParams {
+  invoiceId: string
+  amount: string
+  merchant: string
+  invoiceRecord: string
+  token: string
+  senderCiphertext?: string
+  fee?: number
+  privateFee?: boolean
 }
 
 /**
@@ -192,6 +216,29 @@ export class KethyrPay {
   /** 请求指定程序的记录（委托给钱包适配器） */
   requestRecords(program: string, includePlaintext?: boolean): Promise<unknown[]> {
     return this.wallet.requestRecords(program, includePlaintext)
+  }
+
+  /**
+   * Mint and deliver an InvoiceRecord directly to the payer.
+   *
+   * The connected wallet must be the merchant wallet. This submits the single
+   * `mint_to_payer` transaction and returns its transaction ID.
+   */
+  async mintInvoiceToPayer(params: MintInvoiceToPayerParams): Promise<string> {
+    const transaction = mintInvoiceToPayerTransaction(params)
+    return this.wallet.signTransaction(transaction)
+  }
+
+  /**
+   * Construct and submit the complete v3 atomic `pay_invoice` transaction.
+   *
+   * The connected wallet must be the payer wallet. `invoiceRecord` and `token`
+   * are plaintext records obtained from that wallet; they are never fetched or
+   * persisted by the SDK.
+   */
+  async payInvoice(params: PayInvoiceParams): Promise<string> {
+    const transaction = createPayInvoiceTransaction(params)
+    return this.wallet.signTransaction(transaction)
   }
 
   /**

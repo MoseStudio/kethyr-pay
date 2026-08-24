@@ -15,18 +15,36 @@ const providers = [
 ] as const
 
 const FLOW_CODE = `import { KethyrPay } from "@kethyrpay/sdk";
-const pay = await KethyrPay.create();
 
-// mint invoice to payer (single tx, owner=payer)
-await pay.mintInvoiceToPayer({
-  merchant: "aleo1cdsz2pdt2wsejg4rqfx5hnkwc3nndsn2c5fafuycjtg440e2gcrqdv8z69", payee: "aleo1payer...", amount: "1.50",
+// Merchant: create an intent, then deliver its invoice to the payer.
+const merchantPay = await KethyrPay.create({ autoConnect: true });
+const merchant = merchantPay.getPublicKey();
+const intent = await merchantPay.createPayment({
+  merchant,
+  amount: "1.50",
 });
-const intent = await pay.createPayment({
-  merchant: "aleo1cdsz2pdt...", amount: "1.50", currency: "ALEO",
+await merchantPay.mintInvoiceToPayer({
+  merchant,
+  payee: "aleo1...payer",
+  amount: intent.amount,
+  invoiceId: intent.invoice_id,
 });
-// ZK proof in browser — keys never leave wallet
-// pay_invoice atomic: transfer_private + receipts (1 tx)
-await pay.verifyPayment(intent.id);`
+
+// Payer: records are read from the connected wallet.
+const payerPay = await KethyrPay.create({ autoConnect: true });
+const transactionId = await payerPay.payInvoice({
+  invoiceId: intent.invoice_id,
+  merchant: intent.merchant,
+  amount: intent.amount,
+  invoiceRecord,
+  token: privateCreditsRecord,
+});
+
+// One atomic pay_invoice: private transfer + invoice consume + receipts.
+await payerPay.verifyPayment(intent.invoice_id, {
+  transactionId,
+  expectedAmount: intent.amount,
+});`
 
 const features = [
   ['Private by default', 'Payment amount and payer identity stay shielded on Aleo. The merchant decrypts what it needs with a View Key.', ShieldCheck],
