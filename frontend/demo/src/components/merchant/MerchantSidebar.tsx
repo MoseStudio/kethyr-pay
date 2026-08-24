@@ -12,8 +12,8 @@
  *
  * 内容布局（自上而下）：
  *  1. BrandHeader：KethyrLogo + 品牌名 + 「复制商家地址」快捷按钮
- *  2. PrimaryNav：6 项真实产品导航（Home / Orders / Mint Invoice /
- *     Subscriptions / Export Statement / View Demo），每项都映射到
+ *  2. PrimaryNav：4 项真实产品导航（Home / Orders / Mint Invoice /
+ *     Export Statement），每项都映射到
  *     已挂载的真实路由；激活态由当前路径前缀决定
  *  3. WalletStatusCard：底部展示 Shield Wallet 连接状态、Aleo Testnet、
  *     商家地址、断开按钮——取代原「Polar Plans」虚构升级卡片
@@ -55,7 +55,7 @@ export function MerchantSidebar({
 }: MerchantSidebarProps) {
   // 透明背景，无 border-r；仅桌面端以列宽显示，移动端为抽屉
   const wrapperClass = [
-    'flex w-56 shrink-0 flex-col justify-between py-2 px-1',
+    'flex h-full min-h-0 w-56 shrink-0 flex-col justify-between py-2 px-1',
     'bg-transparent text-zinc-900 transition-colors duration-200',
     'dark:text-zinc-100',
     mobileOpen

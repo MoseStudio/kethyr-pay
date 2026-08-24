@@ -38,6 +38,13 @@ describe('parseDemoParams', () => {
     expect(parseDemoParams({ amount: 'abc', merchant: MERCHANT }).amount).toBeUndefined()
   })
 
+  it('即使不是 demo 参数，也保留 URL 中的 invoice_record', () => {
+    const invoiceRecord = 'owner: aleo1payer.private'
+    expect(parseDemoParams({ merchant: MERCHANT, invoice_record: invoiceRecord }).invoiceRecord).toBe(
+      invoiceRecord,
+    )
+  })
+
   it('merchant 非法时禁用 demo（demo 需两者同时有效）', () => {
     const params = parseDemoParams({ amount: '1.5', merchant: 'not-an-address' })
     expect(params.amount).toBeUndefined()
