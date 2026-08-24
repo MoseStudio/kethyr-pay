@@ -4,16 +4,15 @@
  * 设计：
  * - 纯函数 + 依赖注入：`pollPaymentStatus` 接受 `fetchTransaction` 回调，
  *   便于单测注入 mock，避免真实网络 / WASM 依赖。
- * - 默认 `createNetworkFetchTransaction` 使用 `@provablehq/sdk` 的
- *   `AleoNetworkClient`（懒加载，仅在实际轮询时初始化），端点可配置。
+ * - 默认 `createNetworkFetchTransaction` 使用 Provable API v2 的 REST
+ *   transaction endpoint，端点可配置。
  * - 状态机：pending → confirmed | failed；超时 → failed（规范化错误）。
  */
 
-import type { TransactionJSON } from '@provablehq/sdk/testnet.js'
 import type { PaymentStatus } from './types.js'
 
-/** 默认 Testnet RPC 端点（官方 beacon 节点，AleoNetworkClient 会附加 /testnet） */
-export const DEFAULT_RPC_ENDPOINT = 'https://api.testnet.aleo.org'
+/** 默认 Testnet RPC 端点（Provable API v2，URL 已包含 network） */
+export const DEFAULT_RPC_ENDPOINT = 'https://api.provable.com/v2/testnet'
 
 /** 默认轮询超时（60 秒） */
 export const DEFAULT_POLL_TIMEOUT_MS = 60_000
@@ -27,7 +26,7 @@ export interface VerifyPaymentOptions {
   timeoutMs?: number
   /** 轮询间隔（毫秒，默认 3 秒） */
   intervalMs?: number
-  /** RPC 端点（默认 https://api.testnet.aleo.org） */
+  /** RPC 端点（默认 https://api.provable.com/v2/testnet） */
   rpcEndpoint?: string
   /**
    * 链上交易 ID（at1...）。由支付方在签名广播后获得，用于轮询确认；
@@ -44,6 +43,7 @@ export interface VerifyPaymentOptions {
 }
 
 /** 按交易 ID 查询链上交易的回调（测试注入点） */
+export type TransactionJSON = Record<string, any>
 export type FetchTransaction = (transactionId: string) => Promise<TransactionJSON | null>
 
 /**
@@ -63,27 +63,23 @@ export function paymentIdToField(paymentId: string): string {
 }
 
 /**
- * 默认 fetchTransaction：通过 AleoNetworkClient 查询 Testnet RPC。
- * 懒加载 @provablehq/sdk（WASM 较重，仅在实际轮询时初始化）。
+ * 默认 fetchTransaction：通过 Provable API v2 查询 Testnet 交易。
+ *
+ * v2 的 endpoint 已经包含 network，交易路径是 `/transactions/:txID`。
  */
 export function createNetworkFetchTransaction(
   rpcEndpoint = DEFAULT_RPC_ENDPOINT,
 ): FetchTransaction {
-  let clientPromise: Promise<AleoNetworkClient> | null = null
-
-  async function getClient(): Promise<AleoNetworkClient> {
-    // 动态导入，避免在非 WASM 环境（如纯单测）强制加载
-    const { AleoNetworkClient } = await import('@provablehq/sdk/testnet.js')
-    return new AleoNetworkClient(rpcEndpoint)
-  }
-
   return async (transactionId: string): Promise<TransactionJSON | null> => {
-    clientPromise ??= getClient()
-    const client = await clientPromise
+    const base = rpcEndpoint.replace(/\/+$/, '')
+    const url = `${base}/transactions/${encodeURIComponent(transactionId)}`
     try {
-      return await client.getTransaction(transactionId)
+      const response = await fetch(url)
+      if (response.status === 404) return null
+      if (!response.ok) throw new Error(`RPC request failed (${response.status})`)
+      return (await response.json()) as TransactionJSON
     } catch (error) {
-      // 404 / 未找到 → null（交易尚未确认）；其余错误上抛由调用方规范化
+      // 未找到 → null（交易尚未确认）；其余错误上抛由调用方规范化
       const message = error instanceof Error ? error.message : String(error)
       if (/not found|no transaction|404/i.test(message)) {
         return null
@@ -92,9 +88,6 @@ export function createNetworkFetchTransaction(
     }
   }
 }
-
-// AleoNetworkClient 类型（仅用于 createNetworkFetchTransaction 的返回类型标注）
-type AleoNetworkClient = import('@provablehq/sdk/testnet.js').AleoNetworkClient
 
 /** 从 TransactionJSON 提取 execution 中的 transition 列表 */
 function extractTransitions(tx: TransactionJSON): Array<{

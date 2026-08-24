@@ -18,11 +18,6 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { Wallet } from 'lucide-react'
-import {
-  isValidAleoAddress,
-  paymentIdToField,
-} from '@kethyrpay/sdk'
-
 import { MerchantTopbar } from '@/components/merchant/MerchantTopbar.tsx'
 import { ConnectWalletButton } from '@/components/ConnectWalletButton.tsx'
 import { createDemoKethyrPay, useAleoWallet } from '@/contexts/AleoWalletContext.tsx'
@@ -52,6 +47,7 @@ function MerchantInvoice() {
   const merchant = connected && publicKey ? publicKey : null
 
   const handleMint = async () => {
+    const { isValidAleoAddress, paymentIdToField } = await import('@kethyrpay/sdk')
     console.log('[kethyrpay:invoice] handleMint start', {
       merchant,
       hasSign: typeof wallet.signTransaction,

@@ -90,7 +90,7 @@ export interface KethyrPayOptions {
   autoConnect?: boolean
   /** 支付链接域名前缀（默认 DEFAULT_PAYMENT_BASE_URL） */
   paymentBaseUrl?: string
-  /** Testnet RPC 端点（verifyPayment 轮询用，默认 https://api.testnet.aleo.org） */
+  /** Testnet RPC 端点（verifyPayment 轮询用，默认 https://api.provable.com/v2/testnet） */
   rpcEndpoint?: string
   /** 测试/高级用法：自定义链上交易查询函数（默认 AleoNetworkClient） */
   fetchTransaction?: FetchTransaction

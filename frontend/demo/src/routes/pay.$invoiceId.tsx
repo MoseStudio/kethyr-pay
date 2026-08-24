@@ -27,7 +27,6 @@ import {
   useNavigate,
 } from '@tanstack/react-router'
 import type { PaymentIntent } from '@kethyrpay/sdk'
-import { creditsToMicrocredits, paymentIdToField } from '@kethyrpay/sdk'
 
 import { CheckoutModal } from '@/components/CheckoutModal.tsx'
 import { createDemoKethyrPay, useAleoWallet } from '@/contexts/AleoWalletContext.tsx'
@@ -221,6 +220,7 @@ function CheckoutPage() {
   const handlePay = async () => {
     if (intentState.kind !== 'ready') return
     const intent = intentState.intent
+    const { creditsToMicrocredits, paymentIdToField } = await import('@kethyrpay/sdk')
     setError(null)
     setPayStatus('signing')
 

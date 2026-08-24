@@ -86,7 +86,7 @@ URL, expiry, and transaction parameters. The transaction returned directly by
 include the payer's `InvoiceRecord` and `credits.aleo::credits` record as shown
 above. `verifyPayment` polls the Aleo Testnet RPC endpoint and returns
 `pending`, `confirmed`, or `failed`.
-The default endpoint is `https://api.testnet.aleo.org`; configure
+The default endpoint is `https://api.provable.com/v2/testnet`; configure
 `KethyrPayOptions.rpcEndpoint` to use another endpoint.
 
 ### Merchant: mint an invoice to the payer

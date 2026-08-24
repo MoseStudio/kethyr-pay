@@ -12,7 +12,6 @@
 
 import { useState } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
-import { isValidAleoAddress } from '@kethyrpay/sdk'
 
 import { WalletStatus } from '@/components/WalletStatus.tsx'
 import { generateDemoInvoiceId, sanitizeReturnUrl } from '@/lib/payment-intents.ts'
@@ -48,10 +47,11 @@ function Pay() {
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError(null)
 
+    const { isValidAleoAddress } = await import('@kethyrpay/sdk')
     if (Number(amount) <= 0 || !Number.isFinite(Number(amount))) {
       setError('请输入有效的正数金额。')
       return

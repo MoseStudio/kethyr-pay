@@ -19,7 +19,7 @@ import {
   Loader2,
   XCircle,
 } from 'lucide-react'
-import { KethyrPay, type PaymentStatus } from '@kethyrpay/sdk'
+import type { PaymentStatus } from '@kethyrpay/sdk'
 
 import { CheckoutBrandHeader, CheckoutModalShell } from '@/components/CheckoutModal.tsx'
 import { ThemeToggle } from '@/components/ThemeToggle.tsx'
@@ -28,6 +28,12 @@ import { parseStatusSearch, pollProgress, sanitizeHttpUrl } from '@/lib/checkout
 
 const DEFAULT_TIMEOUT_MS = 60_000
 const DEFAULT_INTERVAL_MS = 3_000
+
+function statusDebug(event: string, details?: Record<string, unknown>): void {
+  if (import.meta.env.DEV) {
+    console.log(`[kethyrpay:status] ${event}`, details ?? '')
+  }
+}
 
 function resolveRpcEndpoint(queryRpc?: string): string | undefined {
   if (queryRpc) return queryRpc
@@ -88,25 +94,56 @@ function PaymentStatusPage() {
     setElapsedMs(0)
 
     const rpcEndpoint = resolveRpcEndpoint(search.rpc)
+    statusDebug('polling started', {
+      invoiceId,
+      attempt,
+      transactionId: search.tx ?? null,
+      manualTransactionId: manualTx.trim() || null,
+      rpcEndpoint: rpcEndpoint ?? 'SDK default',
+      intervalMs: DEFAULT_INTERVAL_MS,
+      timeoutMs: DEFAULT_TIMEOUT_MS,
+    })
     const resolveChainTxId = async (): Promise<string | null> => {
       const manual = manualTx.trim()
       if (manual) {
-        if (/^at1/.test(manual)) return manual
+        if (/^at1/.test(manual)) {
+          statusDebug('using manual transaction id', { transactionId: manual })
+          return manual
+        }
+        statusDebug('invalid manual transaction id', { value: manual })
         return null
       }
       const rawTx = search.tx?.trim()
-      if (!rawTx) return null
-      if (/^at1/.test(rawTx)) return rawTx
+      if (!rawTx) {
+        statusDebug('transaction id missing from URL')
+        return null
+      }
+      if (/^at1/.test(rawTx)) {
+        statusDebug('using transaction id from URL', { transactionId: rawTx })
+        return rawTx
+      }
+      statusDebug('resolving wallet transaction job', { transactionId: rawTx })
       for (let i = 0; i < 10; i++) {
         try {
           const res = await transactionStatus(rawTx)
+          statusDebug('wallet transaction status', {
+            transactionId: rawTx,
+            poll: i + 1,
+            status: res.status,
+            chainTransactionId: res.transactionId ?? null,
+            error: res.error ?? null,
+          })
           if (res.transactionId && /^at1/.test(res.transactionId)) return res.transactionId
           if (res.status === 'failed' || res.status === 'rejected') return null
-        } catch {
-          // retry
+        } catch (error) {
+          statusDebug('wallet transaction status request failed', {
+            poll: i + 1,
+            error: error instanceof Error ? error.message : String(error),
+          })
         }
         await new Promise((r) => setTimeout(r, 3000))
       }
+      statusDebug('wallet transaction id resolution timed out')
       return null
     }
 
@@ -125,6 +162,13 @@ function PaymentStatusPage() {
           })
           return
         }
+        statusDebug('verifying chain transaction', {
+          invoiceId,
+          transactionId: chainTxId,
+          rpcEndpoint: rpcEndpoint ?? 'SDK default',
+          expectedAmount: search.amount ?? null,
+        })
+        const { KethyrPay } = await import('@kethyrpay/sdk')
         const kethyrPay = await KethyrPay.create({ skipWasmInit: true })
         const status = await kethyrPay.verifyPayment(invoiceId, {
           timeoutMs: DEFAULT_TIMEOUT_MS,
@@ -134,6 +178,13 @@ function PaymentStatusPage() {
           ...(search.amount ? { expectedAmount: search.amount } : {}),
         })
         if (controller.signal.aborted) return
+        statusDebug('payment verification completed', {
+          invoiceId,
+          transactionId: status.transaction_id ?? chainTxId,
+          status: status.status,
+          amount: status.amount ?? null,
+          error: status.error ?? null,
+        })
         if (status.status === 'confirmed') setPollState({ kind: 'confirmed', status })
         else if (status.status === 'failed') setPollState({ kind: 'failed', status })
         else
@@ -144,6 +195,10 @@ function PaymentStatusPage() {
       } catch (err: unknown) {
         if (controller.signal.aborted) return
         const message = err instanceof Error ? err.message : '支付状态查询失败。'
+        statusDebug('payment verification failed', {
+          invoiceId,
+          error: message,
+        })
         setPollState({ kind: 'failed', status: { status: 'failed', error: message } })
       }
     })()

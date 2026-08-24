@@ -12,7 +12,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 export NETWORK="${NETWORK:-testnet}"
-export ENDPOINT="${ENDPOINT:-https://api.explorer.provable.com/v1}"
+export ENDPOINT="${ENDPOINT:-https://api.provable.com/v2/testnet}"
 
 if [[ -z "${PRIVATE_KEY:-}" ]]; then
   echo "ERROR: PRIVATE_KEY is required (a funded Aleo testnet account)." >&2

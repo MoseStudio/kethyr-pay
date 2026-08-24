@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react'
-import { KethyrPay, type WalletAdapter } from '@kethyrpay/sdk'
+import type { KethyrPay, WalletAdapter } from '@kethyrpay/sdk'
 
 export interface AleoWallet {
   /** Whether the wallet adapter has finished loading on the client */
@@ -64,6 +64,7 @@ export function useAleoWallet(): AleoWallet {
 
 /** Adapt the Demo wallet bridge to the SDK's high-level payment client. */
 export async function createDemoKethyrPay(wallet: AleoWallet): Promise<KethyrPay> {
+  const { KethyrPay } = await import('@kethyrpay/sdk')
   const adapter: WalletAdapter = {
     name: 'Demo Wallet',
     get connected() {

@@ -17,14 +17,14 @@
 cd contracts/pay_private_v3
 PRIVATE_KEY=APrivateKey1zkp... \
 NETWORK=testnet \
-ENDPOINT=https://api.explorer.provable.com/v1 \
+ENDPOINT=https://api.provable.com/v2/testnet \
 bash scripts/deploy.sh
 ```
 
 > 非交互式自动化场景（如 CI / agent）请直接调 `leo deploy --yes`：
 > ```bash
 > leo deploy --network testnet \
->            --endpoint https://api.explorer.provable.com/v1 \
+>            --endpoint https://api.provable.com/v2/testnet \
 >            --private-key "$PRIVATE_KEY" \
 >            --broadcast --yes
 > ```
@@ -38,7 +38,7 @@ bash scripts/deploy.sh
 | Deployer Address | `aleo1cdsz2pdt2wsejg4rqfx5hnkwc3nndsn2c5fafuycjtg440e2gcrqdv8z69` |
 | Transaction ID | `at1sq0xgyaqsx53k9eqkgexzu2njjpt66p4c0jzh566taqe6yj9nufqzre8wy` |
 | Fee Transaction ID | `at1f4w8p7p77rruw0fdv79dmax7fx5e0re54adxqcm9p6r5jds8lqyq3d4su8` |
-| Endpoint | https://api.explorer.provable.com/v1 |
+| Endpoint | https://api.provable.com/v2/testnet |
 | Total Fee | 10.849479 credits |
 | Confirmed Block | 18,875,651+（Confirmed） |
 | Confirmed | ✅ |

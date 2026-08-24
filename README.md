@@ -105,7 +105,7 @@ Configure the frontend `.env`:
 
 ```env
 VITE_USE_REAL_TRANSACTIONS=true
-VITE_RPC_ENDPOINT=https://api.explorer.provable.com/v1   # override when the default endpoint is unreachable
+VITE_RPC_ENDPOINT=https://api.provable.com/v2/testnet   # optional RPC override
 VITE_ENABLE_PERFORMANCE_PANEL=false   # show bottom-right perf panel (debug only)
 ```
 

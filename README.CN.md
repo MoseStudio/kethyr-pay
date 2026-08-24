@@ -105,7 +105,7 @@ cd frontend/demo && pnpm install && pnpm dev   # http://localhost:3002
 
 ```env
 VITE_USE_REAL_TRANSACTIONS=true
-VITE_RPC_ENDPOINT=https://api.explorer.provable.com/v1   # 默认端点不可达时的覆盖
+VITE_RPC_ENDPOINT=https://api.provable.com/v2/testnet   # 可选 RPC 覆盖
 VITE_ENABLE_PERFORMANCE_PANEL=false   # 显示右下角性能面板（调试用）
 ```
 
