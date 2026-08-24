@@ -6,6 +6,8 @@ import { KethyrLogo } from '@/components/merchant/KethyrLogo.tsx'
 
 export const Route = createFileRoute('/')({ component: Home })
 
+const START_USING_LABEL = 'Get started'
+
 const providers = [
   ['Hosted Checkout', CreditCard, 'bg-violet-100 text-violet-600'],
   ['JS SDK', Code2, 'bg-sky-100 text-sky-600'],
@@ -81,13 +83,12 @@ function Home() {
         <a href="#" className="flex items-center gap-2.5 font-semibold tracking-tight"><span className="flex size-8 items-center justify-center rounded-lg bg-[#18181b] text-white"><KethyrLogo size={20} /></span>KethyrPay</a>
         <div className="hidden items-center gap-1 md:flex">
           <a href="#features" className="rounded-full px-4 py-2 text-sm text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900">Why KethyrPay</a>
-          <a href="/merchant" className="rounded-full px-4 py-2 text-sm text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900">Get started</a>
           <a href="https://github.com/MoseStudio/kethyr-pay" target="_blank" rel="noreferrer" className="rounded-full px-4 py-2 text-sm text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900">GitHub</a>
-          <a href="#demo" className="ml-2 inline-flex items-center gap-1.5 rounded-full bg-[#18181b] px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700">See how it works <ArrowRight size={14} /></a>
+          <a href="/merchant" className="ml-2 inline-flex items-center gap-1.5 rounded-full bg-[#18181b] px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700">{START_USING_LABEL} <ArrowRight size={14} /></a>
         </div>
         <button type="button" aria-label="Toggle navigation" onClick={() => setMenuOpen(!menuOpen)} className="rounded-lg p-2 md:hidden">{menuOpen ? <X size={21} /> : <Menu size={21} />}</button>
       </nav>
-      {menuOpen && <div className="mx-6 mb-2 flex flex-col gap-1 rounded-2xl border border-zinc-200 bg-white p-3 shadow-lg md:hidden"><a href="#features" className="rounded-xl px-3 py-2.5 text-sm">Why KethyrPay</a><a href="/merchant" className="rounded-xl px-3 py-2.5 text-sm">Get started</a><a href="#demo" className="rounded-xl bg-zinc-900 px-3 py-2.5 text-sm text-white">See how it works <ArrowRight className="inline" size={14} /></a></div>}
+      {menuOpen && <div className="mx-6 mb-2 flex flex-col gap-1 rounded-2xl border border-zinc-200 bg-white p-3 shadow-lg md:hidden"><a href="#features" className="rounded-xl px-3 py-2.5 text-sm">Why KethyrPay</a><a href="/merchant" className="inline-flex items-center justify-between rounded-xl bg-zinc-900 px-3 py-2.5 text-sm text-white">{START_USING_LABEL} <ArrowRight className="inline" size={14} /></a></div>}
 
       <section className="relative mx-auto max-w-6xl px-6 pb-24 pt-16 lg:px-8 lg:pb-32 lg:pt-24">
         <div className="pointer-events-none absolute -right-32 top-6 size-[28rem] rounded-full bg-gradient-to-br from-zinc-200/70 via-zinc-100/20 to-transparent blur-3xl" />

@@ -211,7 +211,10 @@ export function parseDemoParams(search: Record<string, unknown>): {
   const merchantValid = merchant !== undefined && isValidAleoAddress(merchant)
 
   if (!amountValid || !merchantValid) {
-    return { returnUrl: sanitizeReturnUrl(returnUrl) }
+    return {
+      returnUrl: sanitizeReturnUrl(returnUrl),
+      invoiceRecord,
+    }
   }
 
   return {

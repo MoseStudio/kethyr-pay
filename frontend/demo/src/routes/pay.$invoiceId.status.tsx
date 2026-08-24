@@ -106,7 +106,7 @@ function PaymentStatusPage() {
     const resolveChainTxId = async (): Promise<string | null> => {
       const manual = manualTx.trim()
       if (manual) {
-        if (/^at1/.test(manual)) {
+        if (manual.startsWith('at1')) {
           statusDebug('using manual transaction id', { transactionId: manual })
           return manual
         }
@@ -118,7 +118,7 @@ function PaymentStatusPage() {
         statusDebug('transaction id missing from URL')
         return null
       }
-      if (/^at1/.test(rawTx)) {
+      if (rawTx.startsWith('at1')) {
         statusDebug('using transaction id from URL', { transactionId: rawTx })
         return rawTx
       }
@@ -133,7 +133,7 @@ function PaymentStatusPage() {
             chainTransactionId: res.transactionId ?? null,
             error: res.error ?? null,
           })
-          if (res.transactionId && /^at1/.test(res.transactionId)) return res.transactionId
+          if (res.transactionId && res.transactionId.startsWith('at1')) return res.transactionId
           if (res.status === 'failed' || res.status === 'rejected') return null
         } catch (error) {
           statusDebug('wallet transaction status request failed', {
@@ -182,8 +182,8 @@ function PaymentStatusPage() {
           invoiceId,
           transactionId: status.transaction_id ?? chainTxId,
           status: status.status,
-          amount: status.amount ?? null,
-          error: status.error ?? null,
+          amount: 'amount' in status ? status.amount : null,
+          error: 'error' in status ? status.error : null,
         })
         if (status.status === 'confirmed') setPollState({ kind: 'confirmed', status })
         else if (status.status === 'failed') setPollState({ kind: 'failed', status })

@@ -52,6 +52,8 @@ export interface CheckoutModalProps {
   onDisconnectWallet?: () => void
   /** Pay 按钮是否禁用（钱包未连 / 已过期 / 正在签名 / 正在广播） */
   payDisabled: boolean
+  /** URL 是否提供了可用于本次支付的 InvoiceRecord */
+  invoiceRecordAvailable?: boolean
   /** 当前支付阶段，用于按钮文案：idle | signing | broadcasting */
   payStatus: 'idle' | 'signing' | 'broadcasting'
   /** 过期剩余毫秒（用于显示倒计时）；未过期但无过期时间时传 null */
@@ -86,6 +88,7 @@ export function CheckoutModal(props: CheckoutModalProps) {
         onConnectWallet={props.onConnectWallet}
         onDisconnectWallet={props.onDisconnectWallet}
         payDisabled={props.payDisabled}
+        invoiceRecordAvailable={props.invoiceRecordAvailable}
         payStatus={props.payStatus}
         remainingMs={props.remainingMs}
         meta={props.meta}
@@ -138,6 +141,7 @@ interface CheckoutCardProps {
   onConnectWallet: () => void
   onDisconnectWallet?: () => void
   payDisabled: boolean
+  invoiceRecordAvailable?: boolean
   payStatus: 'idle' | 'signing' | 'broadcasting'
   remainingMs: number | null
   meta?: CheckoutModalProps['meta']
@@ -395,6 +399,7 @@ function PaymentForm(props: CheckoutCardProps) {
     onConnectWallet,
     onDisconnectWallet,
     payDisabled,
+    invoiceRecordAvailable = true,
     payStatus,
     meta,
     onMetaChange,
@@ -432,6 +437,7 @@ function PaymentForm(props: CheckoutCardProps) {
           wallet={wallet}
           onConnect={onConnectWallet}
           onDisconnect={onDisconnectWallet}
+          invoiceRecordAvailable={invoiceRecordAvailable}
         />
 
         {/* Memo (optional reference note for merchant) */}
@@ -493,15 +499,22 @@ function PaymentForm(props: CheckoutCardProps) {
           />
         </dl>
 
-        {/* Disclaimer when wallet not connected */}
-        {wallet.status !== 'connected' && (
+        {/* Disclaimer when wallet is not connected or the URL has no invoice */}
+        {wallet.status !== 'connected' ? (
           <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-50 p-3 text-xs text-amber-800 dark:bg-amber-500/5 dark:text-amber-200/90">
             <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
             <span className="leading-relaxed">
               需要先连接 Aleo 钱包（Leo Wallet / Shield / Fox / Puzzle）才能签名支付。
             </span>
           </div>
-        )}
+        ) : !invoiceRecordAvailable ? (
+          <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-50 p-3 text-xs text-amber-800 dark:bg-amber-500/5 dark:text-amber-200/90">
+            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+            <span className="leading-relaxed">
+              Invoice record not found in the URL. Open the payment link provided by the merchant to continue.
+            </span>
+          </div>
+        ) : null}
       </div>
 
       {/* Bottom: CTA + legal — 限宽居中避免全宽过大 */}
@@ -544,10 +557,12 @@ function WalletStatusCard({
   wallet,
   onConnect,
   onDisconnect,
+  invoiceRecordAvailable = true,
 }: {
   wallet: WalletState
   onConnect: () => void
   onDisconnect?: () => void
+  invoiceRecordAvailable?: boolean
 }) {
   return (
     <div className="space-y-3 rounded-xl border border-zinc-200 bg-zinc-50/70 p-3 dark:border-zinc-800 dark:bg-zinc-900/40">
@@ -593,6 +608,11 @@ function WalletStatusCard({
             >
               Disconnect
             </button>
+          )}
+          {!invoiceRecordAvailable && (
+            <p className="text-xs leading-relaxed text-amber-700 dark:text-amber-300">
+              Invoice record not found in the URL. Open the payment link provided by the merchant.
+            </p>
           )}
         </>
       ) : (

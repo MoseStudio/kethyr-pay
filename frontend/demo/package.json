@@ -6,9 +6,13 @@
     "#/*": "./src/*"
   },
   "scripts": {
+    "predev": "pnpm --dir ../../packages/sdk build",
     "dev": "vite dev --port 3002",
     "generate-routes": "tsr generate",
+    "prebuild": "pnpm --dir ../../packages/sdk build",
     "build": "vite build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "oxlint src",
     "cf:dev": "wrangler dev",
     "deploy": "pnpm build && wrangler deploy",
     "cf-typegen": "wrangler types",
@@ -48,6 +52,7 @@
     "@vitejs/plugin-react": "^6.0.5",
     "esbuild": "^0.28.2",
     "jsdom": "^30.0.1",
+    "oxlint": "^1.79.0",
     "playwright": "^1.62.1",
     "rolldown": "1.2.4",
     "rollup": "^4.62.4",

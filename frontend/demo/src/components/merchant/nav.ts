@@ -7,9 +7,7 @@
  *  - 与 KethyrPay 实际产品面对齐（见 README §核心功能）：
  *    - Orders：商家收款明细（/merchant）
  *    - Mint Invoice：链上铸造 + 转移 InvoiceRecord（/merchant/invoice）
- *    - Subscriptions：隐私托管订阅授权（/authorize）
  *    - Export Statement：View Key 账期导出（/merchant/export，兼容 Request Finance）
- *    - View Demo：CheckoutModal 视觉预览（/preview）
  *    - Home：返回落地页（/）
  *  - 不再有 Products / Customers / Analytics / Finance / Settings 等
  *    Stripe-SaaS-taxonomy 占位项——这些不是 KethyrPay 的产品。
@@ -17,10 +15,8 @@
 
 import {
   Download,
-  Eye,
   FilePlus,
   Home,
-  Repeat,
   ShoppingBag,
   type LucideIcon,
 } from 'lucide-react'
@@ -61,25 +57,11 @@ export const MERCHANT_NAV: NavItem[] = [
     description: '链上铸造 InvoiceRecord 并转移给付款人',
   },
   {
-    id: 'subscriptions',
-    label: 'Subscriptions',
-    icon: Repeat,
-    to: '/authorize',
-    description: '授权隐私托管订阅（Escrow Subscription Contract）',
-  },
-  {
     id: 'export',
     label: 'Export Statement',
     icon: Download,
     to: '/merchant/export',
     description: 'View Key 账期导出（CSV / JSON，Request Finance 兼容）',
-  },
-  {
-    id: 'demo',
-    label: 'View Demo',
-    icon: Eye,
-    to: '/preview',
-    description: 'CheckoutModal 视觉预览（无需真实发票）',
   },
 ]
 

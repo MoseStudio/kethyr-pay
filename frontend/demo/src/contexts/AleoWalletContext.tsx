@@ -73,7 +73,10 @@ export async function createDemoKethyrPay(wallet: AleoWallet): Promise<KethyrPay
     get publicKey() {
       return wallet.publicKey
     },
-    connect: wallet.connect,
+    connect: async () => {
+      await wallet.connect()
+      return wallet.publicKey ?? ''
+    },
     disconnect: wallet.disconnect,
     signTransaction: async (transaction) => {
       const jobId = await wallet.signTransaction(transaction)

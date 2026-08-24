@@ -52,7 +52,7 @@ export function MerchantShell({ children }: MerchantShellProps) {
       {/* 1. 外层画布：viewport 整层带 padding + gap */}
       <div
         id="merchant-shell"
-        className="flex min-h-screen w-full gap-4 bg-[#f4f4f5] p-3 text-zinc-900 antialiased transition-colors duration-200 md:gap-6 md:p-4 dark:bg-zinc-950 dark:text-zinc-100"
+        className="flex h-screen min-h-0 w-full gap-4 overflow-hidden bg-[#f4f4f5] p-3 text-zinc-900 antialiased transition-colors duration-200 md:gap-6 md:p-4 dark:bg-zinc-950 dark:text-zinc-100"
       >
         {/* 2. 侧栏（透明，无 border-r，详见 MerchantSidebar） */}
         <MerchantSidebar mobileOpen={mobileOpen} onRequestClose={closeMobile} />

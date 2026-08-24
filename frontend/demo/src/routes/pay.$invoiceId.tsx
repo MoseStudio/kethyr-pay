@@ -50,6 +50,8 @@ import {
 
 /** demo 商家地址：HANDOFF §3 的 pay_private_v3.aleo 部署者地址 */
 const DEMO_MERCHANT = 'aleo1cdsz2pdt2wsejg4rqfx5hnkwc3nndsn2c5fafuycjtg440e2gcrqdv8z69'
+const INVOICE_SCAN_ATTEMPTS = 5
+const INVOICE_SCAN_INTERVAL_MS = 3_000
 
 interface CheckoutSearch {
   amount?: string
@@ -243,22 +245,33 @@ function CheckoutPage() {
       // 扫描前给 wallet 一个明确的超时，避免 requestRecords 挂起导致按钮永久 loading 且不弹签名。
       const expectedField = paymentIdToField(invoiceId)
       console.log('[kethyrpay:checkout] scanning records', { expectedField, publicKey, invoiceId })
-      const invoiceRecords = (await withTimeout(
-        Promise.resolve(requestRecords('pay_private_v3.aleo', true) as Promise<unknown[]>).then((r) => r ?? []),
-        15_000,
-        '扫描 InvoiceRecord',
-      )) ?? []
-      console.log('[kethyrpay:checkout] invoiceRecords', invoiceRecords.length)
-      let ownedInvoice = invoiceRecords
-        .map(parseInvoiceRecord)
-        .find(
-          (r) =>
-            r &&
-            r.owner === publicKey &&
-            r.invoiceId === expectedField &&
-            !r.spent &&
-            r.plaintext,
-        )
+      let invoiceRecords: unknown[] = []
+      let ownedInvoice: ReturnType<typeof parseInvoiceRecord> | undefined
+      for (let attempt = 1; attempt <= INVOICE_SCAN_ATTEMPTS; attempt += 1) {
+        invoiceRecords = (await withTimeout(
+          Promise.resolve(requestRecords('pay_private_v3.aleo', true) as Promise<unknown[]>).then((r) => r ?? []),
+          15_000,
+          '扫描 InvoiceRecord',
+        )) ?? []
+        console.log('[kethyrpay:checkout] invoiceRecords', {
+          attempt,
+          total: invoiceRecords.length,
+        })
+        ownedInvoice = invoiceRecords
+          .map(parseInvoiceRecord)
+          .find(
+            (r) =>
+              r &&
+              r.owner === publicKey &&
+              r.invoiceId === expectedField &&
+              !r.spent &&
+              r.plaintext,
+          )
+        if (ownedInvoice) break
+        if (attempt < INVOICE_SCAN_ATTEMPTS) {
+          await new Promise((resolve) => setTimeout(resolve, INVOICE_SCAN_INTERVAL_MS))
+        }
+      }
       // fallback：若钱包扫描不到但 URL 带了 invoice_record（商家通过链接直接交付的明文），则直接使用该记录
       if (!ownedInvoice && demoParams.invoiceRecord) {
         const fallback = parseInvoiceRecord(demoParams.invoiceRecord)
@@ -423,8 +436,12 @@ function CheckoutPage() {
             onDisconnectWallet={() => {
               void disconnectWallet()
             }}
+            invoiceRecordAvailable={Boolean(invoiceId)}
             payDisabled={
-              !connected || !publicKey || payStatus !== 'idle' || expired
+              !connected ||
+              !publicKey ||
+              payStatus !== 'idle' ||
+              expired
             }
             payStatus={payStatus === 'error' ? 'idle' : payStatus}
             remainingMs={
