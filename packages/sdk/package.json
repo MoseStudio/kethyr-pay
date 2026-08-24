@@ -1,6 +1,6 @@
 {
   "name": "@kethyrpay/sdk",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "KethyrPay 最小 SDK：Aleo 支付封装（WASM 初始化、钱包适配器、KethyrPay 主类），基于 @provablehq/sdk 与 @provablehq/aleo-wallet-adaptor-*",
   "author": {
     "name": "moseyah",
