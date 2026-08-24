@@ -13,7 +13,7 @@
 | Deployer Address | `aleo1cdsz2pdt2wsejg4rqfx5hnkwc3nndsn2c5fafuycjtg440e2gcrqdv8z69` |
 | Transaction ID | `at1qzvp66car0svdftp58ds4tk05svalmzearqpgn5ude2htdqhjqxq0phrmg` |
 | Fee Transaction ID | `at1ahgwpvqfxyxys233za6wtqaw5rjlz9twarzvww0dasp9ynscnvys9selwe` |
-| Endpoint | `https://api.explorer.provable.com/v1` |
+| Endpoint | `https://api.provable.com/v2/testnet` |
 | Total Fee | 6.731043 credits |
 | Confirmed | ✅ Yes |
 

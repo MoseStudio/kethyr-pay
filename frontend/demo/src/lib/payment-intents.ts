@@ -19,16 +19,48 @@
  * fetch 版本，便于非 Start 环境 / 浏览器控制台 / 单元测试直接使用。
  */
 
-import {
-  createPayInvoiceTransaction,
-  isValidAleoAddress,
-  normalizeAmount,
-  type PaymentIntent,
-  type CreatePaymentParams,
-} from '@kethyrpay/sdk'
+import type { PaymentIntent, CreatePaymentParams } from '@kethyrpay/sdk'
+import { creditsToMicrocredits, isValidAleoAddress } from './contract.ts'
 
 /** 后端发票 API 的 base path（TanStack Start API 路由，012 并行实现） */
 export const PAYMENT_INTENTS_API_BASE = '/api/payment-intents'
+
+const PAY_PROGRAM_ID = 'pay_private_v3.aleo'
+const PAY_FEE = 100_000
+
+function normalizeAmount(value: string | number): string {
+  const text = typeof value === 'number' ? String(value) : value.trim()
+  const parsed = Number(text)
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(`Invalid payment amount: ${value}`)
+  }
+  const microcredits = creditsToMicrocredits(text)
+  if (microcredits <= 0n) {
+    throw new Error(`Invalid payment amount: ${value}`)
+  }
+  return (Number(microcredits) / 1_000_000).toFixed(6)
+}
+
+function createPayInvoiceTransaction(params: {
+  invoiceId: string
+  amount: string
+  merchant: string
+}) {
+  if (!isValidAleoAddress(params.merchant)) {
+    throw new Error(`Invalid Aleo address: ${params.merchant}`)
+  }
+  return {
+    program: PAY_PROGRAM_ID,
+    function: 'pay_invoice',
+    inputs: [
+      params.invoiceId,
+      `${creditsToMicrocredits(params.amount).toString()}u64`,
+      '0group',
+    ],
+    fee: PAY_FEE,
+    privateFee: false,
+  }
+}
 
 /** 支付意图状态（MVP：pending / paid / expired；paid 由外部 verifyPayment 驱动） */
 export type PaymentIntentStatus = 'pending' | 'paid' | 'expired'
