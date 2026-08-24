@@ -51,7 +51,7 @@ Connect wallet → merchant mints invoice (mint_to_payer, owner = payer)
 → on-chain confirmation (verifyPayment) → merchant dashboard details → View Key statement export
 ```
 
-[![Demo 视频](https://github.com/MoseStudio/kethyr-pay/raw/main/video/out/poster.jpg)](https://github.com/user-attachments/assets/5431aa34-fab3-4fbc-86f3-bbd17d61bfb6)
+[![Demo Video](https://github.com/MoseStudio/kethyr-pay/raw/main/video/out/poster.jpg)](https://github.com/user-attachments/assets/2ab3ed36-73cc-42c6-a566-243485adac8b)
 
 > **Security invariant**: v3 is fully **atomic** — `transfer_private` + invoice consume + dual receipts execute in order within a single transaction; any failure reverts the whole tx, **eliminating any intermediate state**.
 
