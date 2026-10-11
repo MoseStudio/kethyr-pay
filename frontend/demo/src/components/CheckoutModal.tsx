@@ -119,15 +119,21 @@ export function CheckoutModalShell({
   )
 }
 
-export function CheckoutBrandHeader() {
+export function CheckoutBrandHeader({
+  subtitle = '隐私支付收银台',
+  title = 'KethyrPay',
+}: {
+  subtitle?: string
+  title?: string
+} = {}) {
   return (
     <header className="flex items-center gap-3">
       <KethyrLogo size={28} />
       <div className="leading-tight">
         <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-          KethyrPay
+          {title}
         </h1>
-        <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-500">隐私支付收银台</p>
+        <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-500">{subtitle}</p>
       </div>
     </header>
   )

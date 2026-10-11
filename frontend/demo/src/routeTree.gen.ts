@@ -10,13 +10,16 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PreviewRouteImport } from './routes/preview'
+import { Route as PayrollRouteImport } from './routes/payroll'
 import { Route as PayRouteImport } from './routes/pay'
 import { Route as MerchantRouteImport } from './routes/merchant'
 import { Route as CancelRouteImport } from './routes/cancel'
 import { Route as AuthorizeRouteImport } from './routes/authorize'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PayrollIndexRouteImport } from './routes/payroll.index'
 import { Route as PayIndexRouteImport } from './routes/pay.index'
 import { Route as MerchantIndexRouteImport } from './routes/merchant.index'
+import { Route as PayrollEmployeeRouteImport } from './routes/payroll.employee'
 import { Route as PayInvoiceIdRouteImport } from './routes/pay.$invoiceId'
 import { Route as MerchantInvoiceRouteImport } from './routes/merchant.invoice'
 import { Route as MerchantExportRouteImport } from './routes/merchant.export'
@@ -25,6 +28,11 @@ import { Route as PayInvoiceIdStatusRouteImport } from './routes/pay.$invoiceId.
 const PreviewRoute = PreviewRouteImport.update({
   id: '/preview',
   path: '/preview',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PayrollRoute = PayrollRouteImport.update({
+  id: '/payroll',
+  path: '/payroll',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PayRoute = PayRouteImport.update({
@@ -52,6 +60,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PayrollIndexRoute = PayrollIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PayrollRoute,
+} as any)
 const PayIndexRoute = PayIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -61,6 +74,11 @@ const MerchantIndexRoute = MerchantIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => MerchantRoute,
+} as any)
+const PayrollEmployeeRoute = PayrollEmployeeRouteImport.update({
+  id: '/employee',
+  path: '/employee',
+  getParentRoute: () => PayrollRoute,
 } as any)
 const PayInvoiceIdRoute = PayInvoiceIdRouteImport.update({
   id: '/$invoiceId',
@@ -89,12 +107,15 @@ export interface FileRoutesByFullPath {
   '/cancel': typeof CancelRoute
   '/merchant': typeof MerchantRouteWithChildren
   '/pay': typeof PayRouteWithChildren
+  '/payroll': typeof PayrollRouteWithChildren
   '/preview': typeof PreviewRoute
   '/merchant/export': typeof MerchantExportRoute
   '/merchant/invoice': typeof MerchantInvoiceRoute
   '/pay/$invoiceId': typeof PayInvoiceIdRouteWithChildren
+  '/payroll/employee': typeof PayrollEmployeeRoute
   '/merchant/': typeof MerchantIndexRoute
   '/pay/': typeof PayIndexRoute
+  '/payroll/': typeof PayrollIndexRoute
   '/pay/$invoiceId/status': typeof PayInvoiceIdStatusRoute
 }
 export interface FileRoutesByTo {
@@ -105,8 +126,10 @@ export interface FileRoutesByTo {
   '/merchant/export': typeof MerchantExportRoute
   '/merchant/invoice': typeof MerchantInvoiceRoute
   '/pay/$invoiceId': typeof PayInvoiceIdRouteWithChildren
+  '/payroll/employee': typeof PayrollEmployeeRoute
   '/merchant': typeof MerchantIndexRoute
   '/pay': typeof PayIndexRoute
+  '/payroll': typeof PayrollIndexRoute
   '/pay/$invoiceId/status': typeof PayInvoiceIdStatusRoute
 }
 export interface FileRoutesById {
@@ -116,12 +139,15 @@ export interface FileRoutesById {
   '/cancel': typeof CancelRoute
   '/merchant': typeof MerchantRouteWithChildren
   '/pay': typeof PayRouteWithChildren
+  '/payroll': typeof PayrollRouteWithChildren
   '/preview': typeof PreviewRoute
   '/merchant/export': typeof MerchantExportRoute
   '/merchant/invoice': typeof MerchantInvoiceRoute
   '/pay/$invoiceId': typeof PayInvoiceIdRouteWithChildren
+  '/payroll/employee': typeof PayrollEmployeeRoute
   '/merchant/': typeof MerchantIndexRoute
   '/pay/': typeof PayIndexRoute
+  '/payroll/': typeof PayrollIndexRoute
   '/pay/$invoiceId/status': typeof PayInvoiceIdStatusRoute
 }
 export interface FileRouteTypes {
@@ -132,12 +158,15 @@ export interface FileRouteTypes {
     | '/cancel'
     | '/merchant'
     | '/pay'
+    | '/payroll'
     | '/preview'
     | '/merchant/export'
     | '/merchant/invoice'
     | '/pay/$invoiceId'
+    | '/payroll/employee'
     | '/merchant/'
     | '/pay/'
+    | '/payroll/'
     | '/pay/$invoiceId/status'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -148,8 +177,10 @@ export interface FileRouteTypes {
     | '/merchant/export'
     | '/merchant/invoice'
     | '/pay/$invoiceId'
+    | '/payroll/employee'
     | '/merchant'
     | '/pay'
+    | '/payroll'
     | '/pay/$invoiceId/status'
   id:
     | '__root__'
@@ -158,12 +189,15 @@ export interface FileRouteTypes {
     | '/cancel'
     | '/merchant'
     | '/pay'
+    | '/payroll'
     | '/preview'
     | '/merchant/export'
     | '/merchant/invoice'
     | '/pay/$invoiceId'
+    | '/payroll/employee'
     | '/merchant/'
     | '/pay/'
+    | '/payroll/'
     | '/pay/$invoiceId/status'
   fileRoutesById: FileRoutesById
 }
@@ -173,6 +207,7 @@ export interface RootRouteChildren {
   CancelRoute: typeof CancelRoute
   MerchantRoute: typeof MerchantRouteWithChildren
   PayRoute: typeof PayRouteWithChildren
+  PayrollRoute: typeof PayrollRouteWithChildren
   PreviewRoute: typeof PreviewRoute
 }
 
@@ -183,6 +218,13 @@ declare module '@tanstack/react-router' {
       path: '/preview'
       fullPath: '/preview'
       preLoaderRoute: typeof PreviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/payroll': {
+      id: '/payroll'
+      path: '/payroll'
+      fullPath: '/payroll'
+      preLoaderRoute: typeof PayrollRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pay': {
@@ -220,6 +262,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/payroll/': {
+      id: '/payroll/'
+      path: '/'
+      fullPath: '/payroll/'
+      preLoaderRoute: typeof PayrollIndexRouteImport
+      parentRoute: typeof PayrollRoute
+    }
     '/pay/': {
       id: '/pay/'
       path: '/'
@@ -233,6 +282,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/merchant/'
       preLoaderRoute: typeof MerchantIndexRouteImport
       parentRoute: typeof MerchantRoute
+    }
+    '/payroll/employee': {
+      id: '/payroll/employee'
+      path: '/employee'
+      fullPath: '/payroll/employee'
+      preLoaderRoute: typeof PayrollEmployeeRouteImport
+      parentRoute: typeof PayrollRoute
     }
     '/pay/$invoiceId': {
       id: '/pay/$invoiceId'
@@ -305,12 +361,26 @@ const PayRouteChildren: PayRouteChildren = {
 
 const PayRouteWithChildren = PayRoute._addFileChildren(PayRouteChildren)
 
+interface PayrollRouteChildren {
+  PayrollEmployeeRoute: typeof PayrollEmployeeRoute
+  PayrollIndexRoute: typeof PayrollIndexRoute
+}
+
+const PayrollRouteChildren: PayrollRouteChildren = {
+  PayrollEmployeeRoute: PayrollEmployeeRoute,
+  PayrollIndexRoute: PayrollIndexRoute,
+}
+
+const PayrollRouteWithChildren =
+  PayrollRoute._addFileChildren(PayrollRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthorizeRoute: AuthorizeRoute,
   CancelRoute: CancelRoute,
   MerchantRoute: MerchantRouteWithChildren,
   PayRoute: PayRouteWithChildren,
+  PayrollRoute: PayrollRouteWithChildren,
   PreviewRoute: PreviewRoute,
 }
 export const routeTree = rootRouteImport

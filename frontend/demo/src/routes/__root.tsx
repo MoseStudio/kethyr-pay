@@ -3,10 +3,13 @@ import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import { PerformancePanel } from '@/components/PerformancePanel.tsx'
 import { PerformanceProvider } from '@/components/PerformanceProvider.tsx'
 import { WalletProviders } from '@/components/WalletProviders.tsx'
+import { SolanaProvider } from '@/contexts/SolanaProvider.tsx'
 import appCss from '@/styles.css?url'
 // aleo-wallet-adaptor-react-ui 的 WalletModal 样式（遮罩/定位/列表）。
 // 未导入时 Connect Wallet 点击后 modal 无样式不可见，表现为「点了没反应」。
 import '@provablehq/aleo-wallet-adaptor-react-ui/dist/styles.css'
+// Solana wallet-adapter-react-ui 的 WalletModal 样式（Kethyr Flow 薪酬看板）。
+import '@solana/wallet-adapter-react-ui/styles.css'
 
 /**
  * No-flash theme bootstrap.
@@ -45,8 +48,10 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <body className="min-h-screen bg-zinc-100 text-zinc-900 antialiased transition-colors duration-200 dark:bg-zinc-950 dark:text-zinc-100">
         <PerformanceProvider>
           <WalletProviders>
-            {children}
-            {enablePerformancePanel && <PerformancePanel />}
+            <SolanaProvider>
+              {children}
+              {enablePerformancePanel && <PerformancePanel />}
+            </SolanaProvider>
           </WalletProviders>
         </PerformanceProvider>
         <Scripts />
