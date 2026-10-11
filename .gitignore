@@ -36,6 +36,18 @@ logs/
 *.aleo.build/
 deploy-output.json
 
+# Solana / Anchor
+target/
+.anchor/
+test-ledger/
+**/*.so
+
+# Localnet 测试夹具（持久化的 mint 密钥对，让测试代币地址跨 reset 稳定）
+.localnet/
+
+# Devnet 演示夹具（mint / 演示钱包密钥对；**仓库是公开的，绝不提交**）
+.devnet/
+
 # Experiments
 experiments/*/node_modules/
 experiments/*/dist/

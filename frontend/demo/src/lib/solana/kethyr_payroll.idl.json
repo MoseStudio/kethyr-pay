@@ -1,0 +1,1439 @@
+{
+  "address": "Afm1YLnn7WBqbGgBvtxt8GMdV4LbogNqkhbtErXouP4v",
+  "metadata": {
+    "name": "kethyr_payroll",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Kethyr Flow — corporate streaming payroll & treasury protocol on Solana"
+  },
+  "instructions": [
+    {
+      "name": "cancel_stream",
+      "docs": [
+        "终止流：已工作部分即时归员工，剩余退回雇主。"
+      ],
+      "discriminator": [
+        218,
+        221,
+        38,
+        25,
+        177,
+        207,
+        188,
+        91
+      ],
+      "accounts": [
+        {
+          "name": "caller",
+          "docs": [
+            "触发者：雇主或员工皆可签名（离职结算）。"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "employer",
+          "docs": [
+            "企业主账户，作为 company PDA 的种子来源。"
+          ]
+        },
+        {
+          "name": "company",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  109,
+                  112,
+                  97,
+                  110,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "employer"
+              }
+            ]
+          }
+        },
+        {
+          "name": "stream",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  116,
+                  114,
+                  101,
+                  97,
+                  109
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "company"
+              },
+              {
+                "kind": "arg",
+                "path": "stream_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "recipient",
+          "docs": [
+            "员工钱包（作为其 ATA 的 authority；`init_if_needed` 需真实账户）。"
+          ]
+        },
+        {
+          "name": "tax_vault",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true
+        },
+        {
+          "name": "recipient_ata",
+          "docs": [
+            "员工净额收款 ATA（按需创建）。"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "recipient"
+              },
+              {
+                "kind": "account",
+                "path": "token_program"
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "employer_ata",
+          "docs": [
+            "雇主退款 ATA（按需创建）。"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "employer"
+              },
+              {
+                "kind": "account",
+                "path": "token_program"
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "mint"
+        },
+        {
+          "name": "token_program"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "stream_id",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "claim_stream",
+      "docs": [
+        "提取已解锁额度，原子代扣税。"
+      ],
+      "discriminator": [
+        157,
+        247,
+        164,
+        226,
+        240,
+        158,
+        183,
+        36
+      ],
+      "accounts": [
+        {
+          "name": "recipient",
+          "docs": [
+            "员工：签名，net 收入归属，并可代付 ATA 租金。"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "employer",
+          "docs": [
+            "企业主账户，仅作为 company PDA 的种子来源（= company.authority）。"
+          ]
+        },
+        {
+          "name": "company",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  109,
+                  112,
+                  97,
+                  110,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "employer"
+              }
+            ]
+          }
+        },
+        {
+          "name": "stream",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  116,
+                  114,
+                  101,
+                  97,
+                  109
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "company"
+              },
+              {
+                "kind": "arg",
+                "path": "stream_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "tax_vault",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true
+        },
+        {
+          "name": "recipient_ata",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "recipient"
+              },
+              {
+                "kind": "account",
+                "path": "token_program"
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "mint"
+        },
+        {
+          "name": "token_program"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "stream_id",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "close_stream",
+      "docs": [
+        "关闭已终止且清空的流账户，回收租金。"
+      ],
+      "discriminator": [
+        255,
+        241,
+        196,
+        212,
+        95,
+        93,
+        160,
+        89
+      ],
+      "accounts": [
+        {
+          "name": "employer",
+          "docs": [
+            "雇主回收 stream PDA 与空金库的租金。"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "company",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  109,
+                  112,
+                  97,
+                  110,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "employer"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "relations": [
+            "company"
+          ]
+        },
+        {
+          "name": "stream",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  116,
+                  114,
+                  101,
+                  97,
+                  109
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "company"
+              },
+              {
+                "kind": "arg",
+                "path": "stream_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "stream_id",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "create_stream",
+      "docs": [
+        "开一条流：注入本金、写入起止时间与税率。"
+      ],
+      "discriminator": [
+        71,
+        188,
+        111,
+        127,
+        108,
+        40,
+        229,
+        158
+      ],
+      "accounts": [
+        {
+          "name": "employer",
+          "docs": [
+            "雇主 / 企业主，签名并支付金库租金与初始本金。"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "company",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  109,
+                  112,
+                  97,
+                  110,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "employer"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "docs": [
+            "企业主账户，仅用于 `has_one = authority` 校验。"
+          ],
+          "relations": [
+            "company"
+          ]
+        },
+        {
+          "name": "recipient"
+        },
+        {
+          "name": "mint"
+        },
+        {
+          "name": "employer_ata",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "employer"
+              },
+              {
+                "kind": "account",
+                "path": "token_program"
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "stream",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  116,
+                  114,
+                  101,
+                  97,
+                  109
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "company"
+              },
+              {
+                "kind": "arg",
+                "path": "stream_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "docs": [
+            "托管金库：stream PDA 持有的 ATA。"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "stream"
+              },
+              {
+                "kind": "account",
+                "path": "token_program"
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "token_program"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "stream_id",
+          "type": "u64"
+        },
+        {
+          "name": "total_amount",
+          "type": "u64"
+        },
+        {
+          "name": "start_time",
+          "type": "i64"
+        },
+        {
+          "name": "end_time",
+          "type": "i64"
+        },
+        {
+          "name": "withholding_rate",
+          "type": "u16"
+        }
+      ]
+    },
+    {
+      "name": "initialize_company",
+      "docs": [
+        "初始化企业配置 + 税务金库。"
+      ],
+      "discriminator": [
+        75,
+        156,
+        55,
+        94,
+        184,
+        64,
+        58,
+        30
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "company",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  109,
+                  112,
+                  97,
+                  110,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint"
+        },
+        {
+          "name": "tax_vault",
+          "docs": [
+            "税务金库：company PDA 持有的 ATA，authority 为 company PDA。"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "company"
+              },
+              {
+                "kind": "account",
+                "path": "token_program"
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "token_program"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "withholding_rate",
+          "type": "u16"
+        },
+        {
+          "name": "auditor",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "update_company",
+      "docs": [
+        "更新默认税率 / 审计员。"
+      ],
+      "discriminator": [
+        207,
+        145,
+        102,
+        124,
+        179,
+        41,
+        98,
+        192
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "company"
+          ]
+        },
+        {
+          "name": "company",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  109,
+                  112,
+                  97,
+                  110,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "authority"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "withholding_rate",
+          "type": "u16"
+        },
+        {
+          "name": "auditor",
+          "type": "pubkey"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "CompanyConfig",
+      "discriminator": [
+        242,
+        116,
+        177,
+        228,
+        213,
+        253,
+        5,
+        63
+      ]
+    },
+    {
+      "name": "PayrollStream",
+      "discriminator": [
+        240,
+        123,
+        189,
+        234,
+        50,
+        66,
+        155,
+        48
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "Claimed",
+      "discriminator": [
+        217,
+        192,
+        123,
+        72,
+        108,
+        150,
+        248,
+        33
+      ]
+    },
+    {
+      "name": "CompanyInitialized",
+      "discriminator": [
+        35,
+        177,
+        237,
+        225,
+        0,
+        150,
+        214,
+        211
+      ]
+    },
+    {
+      "name": "CompanyUpdated",
+      "discriminator": [
+        244,
+        96,
+        109,
+        128,
+        65,
+        251,
+        26,
+        128
+      ]
+    },
+    {
+      "name": "StreamCancelled",
+      "discriminator": [
+        91,
+        215,
+        29,
+        237,
+        194,
+        6,
+        184,
+        92
+      ]
+    },
+    {
+      "name": "StreamClosed",
+      "discriminator": [
+        14,
+        206,
+        32,
+        10,
+        248,
+        82,
+        169,
+        234
+      ]
+    },
+    {
+      "name": "StreamCreated",
+      "discriminator": [
+        93,
+        150,
+        91,
+        15,
+        166,
+        8,
+        251,
+        166
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "InvalidTimeRange",
+      "msg": "end_time 必须大于 start_time"
+    },
+    {
+      "code": 6001,
+      "name": "InvalidWithholdingRate",
+      "msg": "withholding_rate 必须 <= 10000 (100%)"
+    },
+    {
+      "code": 6002,
+      "name": "InvalidAmount",
+      "msg": "total_amount 必须大于 0"
+    },
+    {
+      "code": 6003,
+      "name": "NothingToClaim",
+      "msg": "当前没有可提取的额度"
+    },
+    {
+      "code": 6004,
+      "name": "StreamCancelled",
+      "msg": "流已被终止"
+    },
+    {
+      "code": 6005,
+      "name": "StreamNotCancelled",
+      "msg": "只有在流被终止后才能关闭账户"
+    },
+    {
+      "code": 6006,
+      "name": "Unauthorized",
+      "msg": "未授权：调用者既不是雇主也不是员工"
+    },
+    {
+      "code": 6007,
+      "name": "MathOverflow",
+      "msg": "算术溢出"
+    },
+    {
+      "code": 6008,
+      "name": "VaultNotEmpty",
+      "msg": "托管金库仍有余额，无法关闭"
+    }
+  ],
+  "types": [
+    {
+      "name": "Claimed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "stream",
+            "type": "pubkey"
+          },
+          {
+            "name": "recipient",
+            "type": "pubkey"
+          },
+          {
+            "name": "unlocked",
+            "type": "u64"
+          },
+          {
+            "name": "net_amount",
+            "type": "u64"
+          },
+          {
+            "name": "tax_amount",
+            "type": "u64"
+          },
+          {
+            "name": "withdrawn",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "CompanyConfig",
+      "docs": [
+        "企业配置：税率、税务金库、审计员的唯一权威来源。",
+        "",
+        "PDA seeds: `[COMPANY_SEED, authority]`"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "docs": [
+              "企业主 / 发薪主体，拥有 update / create_stream 权限。"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "mint",
+            "docs": [
+              "发薪代币 mint（一个企业绑定一种代币）。"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "tax_vault",
+            "docs": [
+              "代扣税务金库（company PDA 的 ATA，authority 为 company PDA）。"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "auditor",
+            "docs": [
+              "只读合规审计员；`Pubkey::default()` 表示未设置。"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "withholding_rate",
+            "docs": [
+              "默认预扣税率（基准点，10000 = 100%）。"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "total_streams",
+            "docs": [
+              "累计开流数量（统计用）。"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "CompanyInitialized",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "company",
+            "type": "pubkey"
+          },
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "tax_vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "withholding_rate",
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "CompanyUpdated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "company",
+            "type": "pubkey"
+          },
+          {
+            "name": "withholding_rate",
+            "type": "u16"
+          },
+          {
+            "name": "auditor",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PayrollStream",
+      "docs": [
+        "流式薪酬的核心状态账户。",
+        "",
+        "PDA seeds: `[STREAM_SEED, company, stream_id]`",
+        "",
+        "资金托管在一枚由本 PDA 持有的 ATA 中",
+        "（`ATA(stream, mint, token_program)`），程序以 seeds 签名动用。"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "company",
+            "docs": [
+              "所属企业配置 PDA。"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "employer",
+            "docs": [
+              "雇主（== company.authority），取消时剩余额度退回此处。"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "recipient",
+            "docs": [
+              "员工钱包，net 收入归属。"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "vault",
+            "docs": [
+              "托管金库 ATA。"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "total_amount",
+            "docs": [
+              "流总额。"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "withdrawn_amount",
+            "docs": [
+              "已提取总额（含代扣税部分）。"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "start_time",
+            "docs": [
+              "开始时间（unix 秒）。"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "end_time",
+            "docs": [
+              "结束时间（unix 秒）。"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "withholding_rate",
+            "docs": [
+              "创建时快照的预扣税率（基准点）。"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "stream_id",
+            "docs": [
+              "企业内唯一流编号，参与 PDA 推导。"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "cancelled",
+            "type": "bool"
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "StreamCancelled",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "stream",
+            "type": "pubkey"
+          },
+          {
+            "name": "employer",
+            "type": "pubkey"
+          },
+          {
+            "name": "recipient",
+            "type": "pubkey"
+          },
+          {
+            "name": "unlocked",
+            "type": "u64"
+          },
+          {
+            "name": "paid_net",
+            "type": "u64"
+          },
+          {
+            "name": "paid_tax",
+            "type": "u64"
+          },
+          {
+            "name": "refunded",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "StreamClosed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "stream",
+            "type": "pubkey"
+          },
+          {
+            "name": "employer",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "StreamCreated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "stream",
+            "type": "pubkey"
+          },
+          {
+            "name": "company",
+            "type": "pubkey"
+          },
+          {
+            "name": "employer",
+            "type": "pubkey"
+          },
+          {
+            "name": "recipient",
+            "type": "pubkey"
+          },
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "total_amount",
+            "type": "u64"
+          },
+          {
+            "name": "start_time",
+            "type": "i64"
+          },
+          {
+            "name": "end_time",
+            "type": "i64"
+          },
+          {
+            "name": "withholding_rate",
+            "type": "u16"
+          },
+          {
+            "name": "stream_id",
+            "type": "u64"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+[package]
+name = "kethyr-payroll"
+version = "0.1.0"
+description = "Kethyr Flow — corporate streaming payroll & treasury protocol on Solana"
+edition = "2021"
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "kethyr_payroll"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+
+[dependencies]
+anchor-lang = { version = "0.32.1", features = ["init-if-needed"] }
+anchor-spl = { version = "0.32.1", features = ["token", "token_2022", "associated_token"] }
+
+# Solana SBF 工具链版本：v1.52 携带 Rust 1.89（支持 edition 2024）。
+# 默认 platform-tools（Rust 1.84）无法解析部分依赖（indexmap / crypto-common 等）
+# 的 edition 2024 manifest，导致 `anchor build` 失败。
+[package.metadata.solana]
+tools-version = "v1.52"

@@ -72,8 +72,9 @@ Connect wallet → merchant mints invoice (mint_to_payer, owner = payer)
 contracts/pay_private/        Leo checkout contract pay_private_v2.aleo (legacy, replaced by v3)
 contracts/pay_private_v3/     Leo checkout contract pay_private_v3.aleo (current Testnet deployment, atomic)
 contracts/escrow_subscription/ Leo private escrow subscription contract (POC: authorize / pull / cancel)
+programs/kethyr-payroll/      Solana Anchor program: Kethyr Flow streaming payroll & treasury (new, Solana Track)
 packages/sdk/                 @kethyrpay/sdk: createPayment / verifyPayment / mint_to_payer
-frontend/demo/                TanStack Start + React 19: Checkout / Status / Merchant Dashboard
+frontend/demo/                TanStack Start + React 19: Checkout / Status / Merchant Dashboard / Payroll
 ```
 
 - Smart contracts: **Leo v4.4.1** (snarkVM 4.9.0)
@@ -193,6 +194,7 @@ Optimize payment latency and device power draw; pursue global fiat compliance li
 - Checkout contract design: [`contracts/pay_private_v3/DESIGN.md`](contracts/pay_private_v3/DESIGN.md) (current) / [`contracts/pay_private/DESIGN.md`](contracts/pay_private/DESIGN.md) (legacy)
 - Checkout contract deployment: [`contracts/pay_private_v3/DEPLOYMENT.md`](contracts/pay_private_v3/DEPLOYMENT.md)
 - Escrow subscription design: [`contracts/escrow_subscription/DESIGN.md`](contracts/escrow_subscription/DESIGN.md)
+- Kethyr Flow (Solana streaming payroll): [`programs/kethyr-payroll/README.md`](programs/kethyr-payroll/README.md)
 - Demo walkthrough: [`docs/DEMO_WALKTHROUGH.md`](docs/DEMO_WALKTHROUGH.md)
 - SDK usage: [`packages/sdk/README.md`](packages/sdk/README.md)
 - Demo app: [`frontend/demo/README.md`](frontend/demo/README.md)

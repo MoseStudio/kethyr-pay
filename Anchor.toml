@@ -1,0 +1,22 @@
+[toolchain]
+
+[features]
+resolution = true
+
+[programs.localnet]
+kethyr_payroll = "Afm1YLnn7WBqbGgBvtxt8GMdV4LbogNqkhbtErXouP4v"
+
+[programs.devnet]
+kethyr_payroll = "Afm1YLnn7WBqbGgBvtxt8GMdV4LbogNqkhbtErXouP4v"
+
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+# Kethyr Flow 交付范围不含 TS 测试套件；此处保留 build/deploy 快捷入口。
+build = "anchor build"
+deploy-devnet = "anchor deploy --provider.cluster devnet"
+
+[test]
+startup_wait = 5000

@@ -72,8 +72,9 @@ KethyrPay 是一个**开发者优先（Developer-first）、默认隐私、兼�
 contracts/pay_private/        Leo 收单合约 pay_private_v2.aleo（历史，已被 v3 替代）
 contracts/pay_private_v3/     Leo 收单合约 pay_private_v3.aleo（当前 Testnet 部署，原子结算）
 contracts/escrow_subscription/ Leo 隐私托管订阅合约（POC：授权 / 扣款 / 退订）
+programs/kethyr-payroll/      Solana Anchor 程序：Kethyr Flow 流式薪酬与财资（新增，Solana 赛道）
 packages/sdk/                 @kethyrpay/sdk：createPayment / verifyPayment / mint_to_payer
-frontend/demo/                TanStack Start + React 19：Checkout / Status / 商家后台
+frontend/demo/                TanStack Start + React 19：Checkout / Status / 商家后台 / 薪酬看板
 ```
 
 - 智能合约：**Leo v4.4.1**（snarkVM 4.9.0）
@@ -193,6 +194,7 @@ VITE_ENABLE_PERFORMANCE_PANEL=false   # 显示右下角性能面板（调试用�
 - 收单合约设计：[`contracts/pay_private_v3/DESIGN.md`](contracts/pay_private_v3/DESIGN.md)（当前） / [`contracts/pay_private/DESIGN.md`](contracts/pay_private/DESIGN.md)（历史）
 - 收单合约部署：[`contracts/pay_private_v3/DEPLOYMENT.md`](contracts/pay_private_v3/DEPLOYMENT.md)
 - 托管订阅合约设计：[`contracts/escrow_subscription/DESIGN.md`](contracts/escrow_subscription/DESIGN.md)
+- Kethyr Flow（Solana 流式薪酬）：[`programs/kethyr-payroll/README.md`](programs/kethyr-payroll/README.md)
 - Demo 自助操作流程：[`docs/DEMO_WALKTHROUGH.md`](docs/DEMO_WALKTHROUGH.md)
 - SDK 使用：[`packages/sdk/README.md`](packages/sdk/README.md)
 - Demo 说明：[`frontend/demo/README.md`](frontend/demo/README.md)
