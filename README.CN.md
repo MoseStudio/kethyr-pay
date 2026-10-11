@@ -1,204 +1,251 @@
-# KethyrPay — Privacy-First Payment Gateway on Aleo
+# Kethyr Flow — Solana 流式薪酬与财资协议
 
-> **Aleo x OpenBuild 亚太黑客松 · PAY 隐私支付赛道**
+> **Colosseum 黑客松 · Solana 赛道**
+
+**在线演示（devnet）：** <https://kethyrpay.suseayah.workers.dev/payroll> · [评委实测指南](docs/DEMO_DEVNET.md)
 
 <div align="center">
 
-**[简体中文](README.CN.md) · [English](README.md)**
+**[English](README.md) · [简体中文](README.CN.md)**
 
 </div>
 
-## 宣传视频
+---
 
-<video src="https://github.com/MoseStudio/kethyr-pay/raw/main/video/out/Kethyrpay.mp4" controls width="100%" poster="https://github.com/MoseStudio/kethyr-pay/raw/main/video/out/poster.jpg"></video>
+工资不是一个「每月一次的事件」，它随时间连续产生。**Kethyr Flow** 把它变成 Solana 上
+一个持续累积的债权：
 
-[![KethyrPay 宣传视频](https://github.com/MoseStudio/kethyr-pay/raw/main/video/out/poster.jpg)](https://github.com/user-attachments/assets/d3f8729c-cce1-4d7c-b256-6e8a462c2eff)
+- 老板**一次性**为一条流注入本金，钱进入由程序托管的金库；
+- 员工的余额**随时间线性解锁**，由一个纯公式决定；
+- 员工想什么时候提就什么时候提，预扣税在**同一条指令里原子地**分流进企业税务金库；
+- **没有每秒的交易** —— 结算是惰性的：只有 claim 时链上状态才变。所以一条流跑一小时和跑
+  一年，链上成本完全一样。
 
 ---
 
-KethyrPay 是一个**开发者优先（Developer-first）、默认隐私、兼顾合规**的 Stripe-like 隐私收单与订阅支付网关。
+## 目录
 
-商家用几行 SDK 代码即可集成隐私收款；付款人在浏览器本地生成 ZK Proof（Client-side Proving，私钥不出钱包）完成支付；链上 `PaymentRecord` 携带 **Sender Ciphertext** 承诺——金额与付款人身份仅持有 View Key 的商家可解密，隐私与合规审计双满足。
+- [要解决的问题](#要解决的问题)
+- [工作原理](#工作原理)
+- [链上参考](#链上参考)
+- [前端](#前端)
+- [仓库结构](#仓库结构)
+- [Devnet 部署](#devnet-部署)
+- [本地运行](#本地运行)
+- [评委实测路线](#评委实测路线)
+- [验证](#验证)
+- [Roadmap](#roadmap)
+- [已知限制（如实说明）](#已知限制如实说明)
 
-## 核心痛点与解决方案
+---
 
-| 用户角色 | 核心痛点 | KethyrPay 解决方案 |
-|----------|----------|--------------------|
-| SaaS 商家 | 传统公链收款导致 MRR 和大客户数据对同行公开；纯匿名隐私币无法合规做账 | Record 记录模型默认隐蔽收款金额与来源；View Key 导出无缝对接 Request Finance / Xero 合规审计 |
-| SaaS 终端用户 | 消费记录、钱包地址、余额在链上裸奔；传统隐私钱包门槛极高 | 默认对外部屏蔽交易流向；Embedded Wallet 邮箱一键登录生成隐私地址 |
-| 开发人员 | ZK 底层电路开发极度复杂（Leo 代码、Prover 性能优化） | Stripe-like JS SDK 与 Hosted Checkout，复杂 ZK 逻辑封装在几行 API 内 |
+## 要解决的问题
 
-## 核心功能
+| 谁 | 痛点 | Kethyr Flow |
+|---|---|---|
+| 雇主 | 发薪是「每月批处理」：钱在劳动之后才动 | 只注资一次，余额按秒累积 |
+| 员工 | 已经赚到的钱要等 30 天才能拿到 | 任意时刻、任意额度提取，精度到秒 |
+| 财务/税务 | 代扣在表格里算，和资金流脱节 | 代扣在**同一笔交易内**拆分并进入预留的税务金库 |
+| 远程/跨境团队 | 结算延迟以天计 | 结算 = 员工想提时的一次签名 |
+| 离职结算 | 「干了但没结清」的扯皮 | `cancel_stream` 确定性结算已工作部分、退回剩余额度 |
 
-1. **开发者工具包（SDK & API）**
-   - **Hosted Checkout（托管收银台）**：商家免开发前端，重定向到 KethyrPay 托管隐私收款页。
-   - **JS SDK**：`createPayment()` / `verifyPayment()` 核心 API，支持商家网站内嵌支付按钮。
-   - **Webhooks 系统**：实时推送支付成功/失败、订阅到期等事件（`payment.secured`、`subscription.renewed`）。
+## 工作原理
 
-2. **隐私自动订阅引擎（Escrow Subscription Contract）**
-   - ZK 链上无法实现传统 Web2「无感扣款（Pull Payment）」，采用**私有托管智能合约**方案。
-   - 用户一次性授权并存入稳定币（USAD / USDCx）至隐私托管合约，合约按订阅周期自动释放金额给商家，直至额度耗尽或用户退订。
+### 1. 企业初始化 — `initialize_company`
 
-3. **选择性合规与导出（Compliant Auditor Dashboard）**
-   - **Sender Ciphertext 自动解密**：商家后台展示付款来源地址，满足 AML 资金来源追溯。
-   - **View Key 单独授权**：为收款记录生成独立 View Key，提交给 Request Finance 或审计机构。
+雇主创建 `CompanyConfig` PDA 和一个**税务金库**（由该 PDA 持有的 ATA）。企业绑定一种发薪
+代币与一个默认预扣税率（bps，`1500` = 15%）。
 
-## 当前 Demo 北极星（全链路真实，非 mock）
+### 2. 开流 — `create_stream`
 
-```
-连接钱包 → 商家铸造发票 (mint_to_payer, owner=付款人)
-→ 付款人准备 private ALEO record (transfer_public_to_private) → 支付 (pay_invoice 原子：transfer_private + 消费 InvoiceRecord + 双 Receipt，单笔交易，任一步失败整笔回滚)
-→ 链上确认 (verifyPayment) → 商家后台收款明细 → View Key 账期导出
-```
+传入 `stream_id`、`total_amount`、`start_time`、`end_time`、`withholding_rate`。指令创建
+`PayrollStream` PDA 与一个**金库**（stream PDA 持有的 ATA），并把**全额本金**转入其中。
+从这一刻起，这笔钱不再属于雇主 —— 它已经被承诺出去了。
 
-[![Demo 视频](https://github.com/MoseStudio/kethyr-pay/raw/main/video/out/poster.jpg)](https://github.com/user-attachments/assets/2ab3ed36-73cc-42c6-a566-243485adac8b)
-
-> **安全设计**：v3 采用**单笔交易原子结算**——`transfer_private` 转移 ALEO、消费 InvoiceRecord、产出双 Receipt 在同一笔交易内顺序执行；任一步失败整笔 revert，**杜绝任何中间态**。
-
-## 核心亮点
-
-| 特性 | 说明 |
-|------|------|
-| 🔒 隐私收单 | 链上 PaymentRecord 为密文，金额/付款人仅 View Key 可解密 |
-| 💸 真实资金流 | 单笔 `pay_invoice` 内 `credits.aleo::transfer_private`，余额真实变动 |
-| ⚖️ 合规底线 | Sender Ciphertext 承诺（group 元素）链上可审计，不碰 Mixer |
-| 🧾 防重放 | InvoiceRecord.serial_number = BHP256 哈希，同一发票仅支付一次 |
-| 📊 商家后台 | 累计收款 + 交易明细 + RFC-4180 CSV / JSON 账期导出（ALEO 计价） |
-| ⚡ 性能埋点 | prove / broadcast / confirm 全程耗时导出（可开关） |
-
-## 架构
+### 3. 连续解锁 — 纯数学，不发交易
 
 ```
-contracts/pay_private/        Leo 收单合约 pay_private_v2.aleo（历史，已被 v3 替代）
-contracts/pay_private_v3/     Leo 收单合约 pay_private_v3.aleo（当前 Testnet 部署，原子结算）
-contracts/escrow_subscription/ Leo 隐私托管订阅合约（POC：授权 / 扣款 / 退订）
-programs/kethyr-payroll/      Solana Anchor 程序：Kethyr Flow 流式薪酬与财资（新增，Solana 赛道）
-packages/sdk/                 @kethyrpay/sdk：createPayment / verifyPayment / mint_to_payer
-frontend/demo/                TanStack Start + React 19：Checkout / Status / 商家后台 / 薪酬看板
+duration  = end_time - start_time
+unlocked  = min(total, total × (now - start_time) / duration)   // 开始前为 0，结束后封顶
+claimable = unlocked - withdrawn_amount
 ```
 
-- 智能合约：**Leo v4.4.1**（snarkVM 4.9.0）
-- 证明系统：`@provablehq/sdk` 浏览器 WASM Prover（Client-side Proving）
-- 钱包适配：`@provablehq/aleo-wallet-adaptor-*`（默认 Shield Wallet，自动连接，声明 pay_private_v3.aleo + credits.aleo）
+`now` 取自链上 `Clock` 的 unix 时间戳。中间量全程用 `u128`，所以 `u64` 总额不可能溢出。这是
+**确定性解锁**：余额只取决于时间，不取决于谁调用了什么。前端用同一个公式逐帧本地计算，
+所以余额能在**不发一次 RPC** 的情况下持续跳动。
 
-## 启动 Demo
+### 4. 提取 — `claim_stream`（原子代扣）
 
-### 1. 合约（Leo 4.4.1）
+```
+tax = claimable × withholding_rate / 10_000
+net = claimable - tax
+```
+
+同一条指令里两笔 `transfer_checked`：`net` → 员工，`tax` → 企业税务金库；
+`withdrawn_amount += claimable`。要么两笔都成功，要么整笔回滚 —— **不存在「发了工资但没代扣」
+的中间态**。
+
+### 5. 终止结算 — `cancel_stream`
+
+**雇主或员工都可以**触发（离职、争议、结算）。它把已工作的额度结清给员工（含代扣），
+并把 `total − unlocked` 退回雇主，然后标记该流已终止。随后 `close_stream` 回收金库与账户租金。
+
+## 链上参考
+
+程序：`programs/kethyr-payroll` · Anchor **0.32.x** · Rust 2021
+
+### 账户
+
+| 账户 | Seeds | 内容 |
+|---|---|---|
+| `CompanyConfig` | `[b"company", authority]` | 企业主、发薪 mint、税务金库、审计员、默认税率、已开流计数 |
+| `PayrollStream` | `[b"stream", company, stream_id_le]` | 雇主、员工、mint、金库、`total_amount`、`withdrawn_amount`、起止时间、税率、是否终止 |
+| 金库 | `ATA(stream PDA, mint, token_program)` | 该流的本金 |
+| 税务金库 | `ATA(company PDA, mint, token_program)` | 代扣税，归属企业 |
+
+### 指令
+
+| 指令 | 参数 | 说明 |
+|---|---|---|
+| `initialize_company` | `withholding_rate: u16, auditor: pubkey` | 建配置 + 税务金库 |
+| `update_company` | `withholding_rate: u16, auditor: pubkey` | 仅企业主 |
+| `create_stream` | `stream_id: u64, total_amount: u64, start_time: i64, end_time: i64, withholding_rate: u16` | 同一笔交易内完成注资 |
+| `claim_stream` | `stream_id: u64` | 仅员工；原子 net/tax 分流 |
+| `cancel_stream` | `stream_id: u64` | 雇主**或**员工；结算 + 退款 |
+| `close_stream` | `stream_id: u64` | 仅在「已终止且金库为空」时；回收租金 |
+
+IDL：`frontend/demo/src/lib/solana/kethyr_payroll.idl.json`（用
+`anchor build && cd frontend/demo && pnpm sync-idl` 重新生成）。
+
+### 代币兼容性
+
+所有代币流转都走 `anchor_spl::token_interface` + `transfer_checked`，金库地址用
+`get_associated_token_address_with_program_id(..., token_program)` 推导。因此**经典 SPL Token
+与 Token-2022 都能用** —— token program 是入参，不是写死的。
+
+### 错误码
+
+`InvalidTimeRange` · `InvalidWithholdingRate` · `InvalidAmount` · `NothingToClaim` ·
+`StreamCancelled` · `StreamNotCancelled` · `Unauthorized` · `MathOverflow` · `VaultNotEmpty`
+
+### 事件
+
+`CompanyInitialized` · `CompanyUpdated` · `StreamCreated` · `Claimed` · `StreamCancelled` · `StreamClosed`
+
+## 前端
+
+两个界面，刻意做成两种产品：
+
+| 路由 | 面向 | 内容 |
+|---|---|---|
+| `/payroll` | 雇主 | 企业初始化、税率设置、开流、流的实时列表、金库余额 |
+| `/payroll/employee` | 员工 | 独立门户（不是后台壳）：跳动余额水表 + 一键 Claim |
+
+- **水表**：`requestAnimationFrame` 插值（`src/lib/solana/vesting.ts` 是纯函数、零依赖、有单测）
+  驱动 [NumberFlow](https://number-flow.barvian.me) 做逐位滚动，而不是整串文本替换。
+- **钱包**：Phantom，仅客户端加载；Solana 相关 chunk 用 `lazy()` 动态导入，**不进入 SSR
+  （Cloudflare Worker）模块图**。
+- **技术栈**：TanStack Start + React 19 + Tailwind v4，部署为 Cloudflare Worker。
+
+## 仓库结构
+
+```text
+Anchor.toml                     Anchor 工作区
+programs/kethyr-payroll/        Solana 程序（本项目核心）
+frontend/demo/                  TanStack Start 前端（雇主页 + 员工门户）
+scripts/localnet-fund.sh        给任意地址充值（SOL + ATA + 代币）
+scripts/localnet-smoke.mjs      链上冒烟测试：断言协议不变量（13 项）
+scripts/devnet-setup.sh         devnet 一键准备：部署 + 建 mint + 给演示钱包充值
+docs/DEMO_DEVNET.md             面向评委的实测指南
+```
+
+## Devnet 部署
+
+| | |
+|---|---|
+| 程序 | `Afm1YLnn7WBqbGgBvtxt8GMdV4LbogNqkhbtErXouP4v` |
+| 发薪 mint | `FZajpoDvjLbpdeK2CvcdGmg1wGqcWrVYqvYC2thFcp8m`（6 位小数） |
+| 浏览器 | `https://explorer.solana.com/address/<地址>?cluster=devnet` |
+| 应用 | <https://kethyrpay.suseayah.workers.dev/payroll> |
+
+## 本地运行
+
+需要：Rust + `anchor` 0.32、Solana CLI、`spl-token`。
 
 ```bash
-cd contracts/pay_private && leo build && leo test   # v2 历史合约 8/8
-cd contracts/pay_private_v3 && leo build && leo test # v3 原子合约
+# 1. 本地 validator
+solana-test-validator --reset
+
+# 2. 构建并部署程序
+anchor build
+anchor deploy --provider.cluster localnet
+
+# 3. 建一个测试 mint，并把地址填给前端
+spl-token create-token --decimals 6 --url http://127.0.0.1:8899   # 记下地址
+#   → frontend/demo/.env:  VITE_PAYROLL_MINT=<mint>
+
+# 4. 给两个钱包充值（方便你同时测雇主与员工）
+sh scripts/localnet-fund.sh <EMPLOYER_WALLET>
+sh scripts/localnet-fund.sh <EMPLOYEE_WALLET>
+
+# 5. 起前端
+cd frontend/demo && pnpm install && pnpm dev     # http://localhost:3002
 ```
 
-### 2. SDK
+`pnpm dev` 读 `frontend/demo/.env`（localnet），`pnpm build` 读
+`frontend/demo/.env.production`（devnet）。RPC 端点在构建时注入，例如
+`VITE_SOLANA_RPC=… pnpm build`；未设置时回退公共 devnet 端点。
+
+### 不开浏览器验证协议
 
 ```bash
-cd packages/sdk && pnpm install && pnpm build && pnpm test && pnpm typecheck
+cd frontend/demo && node ../../scripts/localnet-smoke.mjs
+# 打 devnet：
+cd frontend/demo && SOLANA_RPC=https://api.devnet.solana.com node ../../scripts/localnet-smoke.mjs
 ```
 
-### 3. 前端 Demo
+冒烟测试会开流、提取、终止，并逐条校验数字：代扣分流、`net + tax == 本次提取额`、金库耗尽、
+资金守恒，以及两个预期的失败（`StreamCancelled` 6004、`NothingToClaim` 6003）。
 
-```bash
-cd frontend/demo && pnpm install && pnpm dev   # http://localhost:3002
-```
+## 评委实测路线
 
-前端 `.env` 需配置：
+完整分步版（含预充值演示钱包）见 [`docs/DEMO_DEVNET.md`](docs/DEMO_DEVNET.md)。简版：
 
-```env
-VITE_USE_REAL_TRANSACTIONS=true
-VITE_RPC_ENDPOINT=https://api.provable.com/v2/testnet   # 可选 RPC 覆盖
-VITE_ENABLE_PERFORMANCE_PANEL=false   # 显示右下角性能面板（调试用）
-```
+1. Phantom 切到 **Devnet**，导入现场提供的演示钱包。
+2. 用 **Employer** 打开 `/payroll` → 初始化企业 → 开一条 `100` 代币的流，结束时间设为
+   **60 秒后**，税率 `1500`（=15%）。
+3. 看员工门户 `/payroll/employee` 的数字跳动，然后点 **Claim**：净额进员工钱包，恰好 15%
+   进企业税务金库。
+4. 切回 Employer，在结束前点 **Terminate & settle**：已工作部分结清，未赚取部分退回雇主。
 
-前端同时启用 CSRF 中间件保护 server functions（same-origin RPC），详见 `src/start.ts`。
+## 验证
 
-### 演示动线
+- `anchor build` —— 无告警、无 SBF 栈帧超限
+- `scripts/localnet-smoke.mjs` —— **13/13** 项不变量断言（也可对 devnet 运行）
+- `frontend/demo` 的 `pnpm test` —— **127** 个单测（解锁数学、格式化、金额解析……）
+- `pnpm typecheck` / `pnpm lint` —— 干净
+- 真实 Chromium 全路由检查（无 page/console 错误）+ 生产构建通过
 
-```
-商家钱包 → /merchant/invoice 铸造并交付发票（mint_to_payer 单笔） → 「打开支付页」直达 Checkout
-付款人钱包 → Checkout 支付（单笔 pay_invoice 原子：private ALEO + InvoiceRecord + 双 Receipt）
-付款人钱包 → status 页确认成功（金额 + 交易 ID）→ 「商家后台」直达
-商家钱包 → /merchant 见收款明细 + /merchant/export 导出账期
-```
+## Roadmap
 
-浏览器需安装 **Shield Wallet** 扩展并切换到 Testnet；钱包需授权 `pay_private_v3.aleo` + `credits.aleo` 两个程序（代码已声明，重连钱包生效）。
+1. **合规级隐私** —— 每个企业发一枚带 `ConfidentialTransferMint` 扩展的 **Token-2022 mint**，
+   并在 mint 上设置企业的**审计员** ElGamal 公钥：转账金额变成 ElGamal 密文，对第三方不可见，
+   但税务/审计方可以解密。（程序已经在用 `token_interface`，token program 本来就是入参。）
+2. **连排期也隐藏** —— 目前 `PayrollStream` 里 `total_amount` / `withholding_rate` /
+   `start_time` / `end_time` 是明文，即使金额加密，观察者仍能反推工资。下一步：链上只存承诺，
+   用电路证明「按承诺应解锁多少」。
+3. 元数据隐私（用中继/paymaster 让「雇主→员工」关系图不再公开）、闲置资金生息、多币种发薪、
+   主网部署。
 
-## 产品路线图
+## 已知限制（如实说明）
 
-```
-【 阶段一：POC 】 ──> 【 阶段二：MVP 】 ──> 【 阶段三：PMF 】 ──> 【 阶段四：Scaling 】
- (技术可行性验证)      (核心收单功能上线)      (订阅引擎与生态建立)     (平台化与硬件加速)
-```
-
-### 阶段一：POC（概念验证）— ✅ 已完成
-
-验证浏览器前端（WASM）生成转账 ZK Proof 的速度，以及私有托管订阅合约的数学可行性。
-
-- **Leo 试验性智能合约**：`escrow_subscription.aleo`，支持预授权自动扣款（Escrow Pull Payment）。
-- **浏览器性能压测**：PC Chrome 与主流智能手机上 Varuna 证明系统生成 1 笔隐私稳定币转账证明的耗时。
-- **双花与防重放测试**：验证 Serial Number / Nullifier 链下生成并阻断双花攻击。
-
-**成功指标**：PC 端证明生成 ≤ 3s、手机端 ≤ 5s；Testnet ≥ 1,000 次模拟高并发扣款无资金丢失/双花。
-
-### 阶段二：MVP（最小可行产品）— 🚧 进行中（当前 Demo 对应阶段）
-
-开发出可供真实商家测试、可实际收取一笔隐私稳定币的网关。暂不提供自动续费，只做单次隐私收单。
-
-- **Hosted Checkout**：托管的极简隐私付款网页。
-- **JS SDK v0.1**：`createPayment()` / `verifyPayment()` 双核心 API。
-- **商家后台**：收款总额 + 一键导出对应账期 View Key。
-- **钱包兼容**：主流 Leo 钱包插件一键连接（默认 Shield Wallet）。
-
-**成功指标**：3~5 家 Web3 SaaS 种子商户 alpha 测试；与 Request Finance 的 View Key 账单导入打通；测试期处理 ≥ 100 笔真实 USAD/USDCx 隐私转账。
-
-### 阶段三：PMF（产品市场契合）
-
-推出「隐私自动订阅引擎」，全面对接 Embedded Wallet 降低普通用户门槛，实现真正的 Stripe-like 体验。
-
-- **自动订阅 API**：Escrow 预授权按月自动扣款合约 + 配套 API。
-- **嵌入式钱包集成**：与 Dynamic / Web3Auth 合作，邮箱一键登录隐式生成 Aleo 隐私钱包。
-- **Webhooks 升级**：余额不足无法扣款时自动向商家推送断开订阅回调。
-- **多稳定币支持**：完整支持 USDCx 与 USAD。
-
-**成功指标**：50+ 家商户入驻；订阅续费失败率 < 10%；月均隐私交易额（GPV）突破 100 万美元。
-
-### 阶段四：Scaling（平台化与性能爆发）
-
-优化支付延迟、降低设备功耗，开展全球法币合规牌照化。
-
-- **Delegate Proving**：Compute Key 将重度 ZK 计算托管至云端硬件加速，支付延迟缩短至 1s 内。
-- **跨链支付路由**：ETH/USDT 发起付款，经 ZK 跨链桥自动兑换为 Aleo 隐私稳定币到达商家金库。
-- **法币合规网关**：与受监管 VASP 合作，后台一键合规出金（Off-Ramp）至传统银行账户。
-
-**成功指标**：主要司法辖区 MSB/支付牌照；95% 支付事件 1.5s 内完成全流程（含证明生成与验证）。
-
-## 关键技术决策
-
-- **Proving 策略**：MVP 阶段坚决采用 **Client-side Proving**（慢几秒但架构极简、安全性最高，私钥不出设备）；Scaling 阶段再引入 **Delegate Proving**（Compute Key 保护资产不丢失，优化移动端/弱网体验）。
-- **支付流程（v3 原子化）**：**单笔 `pay_invoice` 原子完成** `credits.aleo::transfer_private` + 消费 InvoiceRecord + 产出双 Receipt；任一步失败整笔 revert。历史 v2 曾需两笔交易先转账再消费，v3 已消除中间态。
-- **合规底线**：坚决不碰混币器（Mixer）。任何转账必须包含 **Sender Ciphertext**，确保收款人（及授权监管方）有权知道资金来源——这是 KethyrPay 不被司法部/SEC 封杀的底线。
-
-## Testnet 部署
-
-| 字段 | 值 |
-|------|-----|
-| Program ID | `pay_private_v3.aleo`（当前） |
-| 部署交易 | `at1sq0xgyaqsx53k9eqkgexzu2njjpt66p4c0jzh566taqe6yj9nufqzre8wy` |
-| Explorer | https://explorer.provable.com/program/pay_private_v3.aleo |
-| 总费用 | 10.849479 ALEO |
-| v1（历史） | `pay_private.aleo`（无 transfer_invoice，@noupgrade） |
-| v2（历史） | `pay_private_v2.aleo`（单笔非原子，已被 v3 替代） |
-
-## 文档
-
-- 收单合约设计：[`contracts/pay_private_v3/DESIGN.md`](contracts/pay_private_v3/DESIGN.md)（当前） / [`contracts/pay_private/DESIGN.md`](contracts/pay_private/DESIGN.md)（历史）
-- 收单合约部署：[`contracts/pay_private_v3/DEPLOYMENT.md`](contracts/pay_private_v3/DEPLOYMENT.md)
-- 托管订阅合约设计：[`contracts/escrow_subscription/DESIGN.md`](contracts/escrow_subscription/DESIGN.md)
-- Kethyr Flow（Solana 流式薪酬）：[`programs/kethyr-payroll/README.md`](programs/kethyr-payroll/README.md)
-- **在线演示（Solana devnet）：** https://kethyrpay.suseayah.workers.dev/payroll · [实测指南](docs/DEMO_DEVNET.md)
-- Demo 自助操作流程：[`docs/DEMO_WALKTHROUGH.md`](docs/DEMO_WALKTHROUGH.md)
-- SDK 使用：[`packages/sdk/README.md`](packages/sdk/README.md)
-- Demo 说明：[`frontend/demo/README.md`](frontend/demo/README.md)
+- **今天金额是公开的。** `PayrollStream` 与金库都是普通账户：任何人读到一条流就能推出某员工的
+  税前工资。Roadmap 第 1 条能隐藏**金额**，第 2 条才能隐藏**排期**。与其暗示一个还没落地的
+  隐私承诺，不如把边界说清楚。
+- 一个企业绑定一种发薪代币（`CompanyConfig`），这是有意为之 —— 也正因为如此，才能给每个企业
+  配独立的审计员密钥。
+- 结算精度为 1 秒（`Clock` sysvar）。
+- `claim_stream` 只付 `claimable`；没有新增解锁时调用会返回 `NothingToClaim`，这是设计如此。
 
 ## License
 
