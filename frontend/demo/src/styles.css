@@ -22,15 +22,3 @@ body,
 body {
   margin: 0;
 }
-
-.shiki-code pre {
-  margin: 0;
-  overflow: hidden;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  background: transparent !important;
-}
-
-.shiki-code pre code {
-  font-weight: 500;
-}

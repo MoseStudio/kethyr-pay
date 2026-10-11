@@ -1,70 +1,60 @@
-# KethyrPay Demo
+# KethyrPay — frontend (TanStack Start on Cloudflare Workers)
 
-A minimal TanStack Start frontend proof-of-concept for the KethyrPay Wave 1 initiative. It demonstrates type-safe file-based routing with placeholder pages for the core payment flows: authorization, payment, and cancellation.
+The web app for **KethyrPay**'s streaming payroll on Solana. Two surfaces:
 
-## Getting Started
+| Route | Who | What |
+|---|---|---|
+| `/` | — | landing: links to both surfaces |
+| `/payroll` | Employer | company setup, tax rate, create streams, live stream list, treasury balance |
+| `/payroll/employee` | Employee | standalone portal: the ticking balance meter + one-click Claim |
 
-Install dependencies:
+The balance is computed locally from the same formula the program uses
+(`unlocked = total × (now − start) / (end − start)`), so the meter ticks every frame
+without polling the chain; on-chain state changes only when someone claims.
+
+## Getting started
 
 ```bash
 pnpm install
+pnpm dev          # http://localhost:3002
 ```
 
-Run the development server:
+`pnpm dev` reads `.env` (localnet by default — see `.env.example`). Point
+`VITE_PAYROLL_MINT` at a mint you created with `spl-token create-token --decimals 6`,
+and fund a couple of wallets with `../scripts/localnet-fund.sh`.
+
+## Production build & deploy
 
 ```bash
-pnpm dev
+pnpm build        # reads .env.production (devnet)
+pnpm deploy       # build + wrangler deploy
 ```
 
-The app will start on `http://localhost:3000` (or the next available port if 3000 is in use).
-
-## Building for Production
+`wrangler.jsonc` defines the Worker (`kethyrpay`). The Solana RPC endpoint is **not**
+committed — inject it at build time (falls back to the public devnet endpoint):
 
 ```bash
-pnpm build
+VITE_SOLANA_RPC='https://devnet.helius-rpc.com/?api-key=<KEY>' pnpm build
 ```
 
-## Deploying to Cloudflare Workers
-
-The demo uses TanStack Start's Cloudflare Vite plugin and is configured as a
-Workers application in `wrangler.jsonc`. Authenticate with Wrangler once, then
-run the production deployment from this directory:
+## Checks
 
 ```bash
-pnpm cf-typegen
-pnpm deploy
+pnpm typecheck    # tsc --noEmit
+pnpm lint         # oxlint
+pnpm test         # vitest (vesting math, formatting, token parsing)
 ```
 
-To run the built Worker locally with the same Cloudflare runtime:
+## Layout
 
-```bash
-pnpm build
-pnpm cf:dev
+```text
+src/
+├── routes/                    # file-based routes (/, /payroll, /payroll/employee)
+├── components/payroll/        # employer console, employee portal, stream card, animated amounts
+├── contexts/SolanaProvider.tsx# client-only Phantom provider (SSR-safe fallback)
+├── hooks/                     # Anchor client, stream subscription, rAF water meter, mint info
+└── lib/solana/                # PDA derivations + pure, unit-tested vesting math
 ```
 
-Set any environment variables or bindings in `wrangler.jsonc` before deploying.
-The current app does not require Cloudflare bindings.
-
-## Directory Structure
-
-```
-demo/
-├── package.json          # Project dependencies and scripts
-├── pnpm-lock.yaml        # pnpm lockfile
-├── tsconfig.json         # TypeScript configuration (strict mode enabled)
-├── vite.config.ts        # Vite + TanStack Start + Tailwind CSS configuration
-├── wrangler.jsonc        # Cloudflare Workers deployment configuration
-├── tsr.config.json       # TanStack Router generator target
-├── public/               # Static assets
-├── src/
-│   ├── router.tsx        # TanStack Router / app entry point
-│   ├── routeTree.gen.ts  # Auto-generated route tree
-│   ├── styles.css        # Tailwind CSS entry and global styles
-│   └── routes/           # File-based routes
-│       ├── __root.tsx    # Root layout
-│       ├── index.tsx     # Home page
-│       ├── authorize.tsx # Authorization placeholder
-│       ├── pay.tsx       # Payment placeholder
-│       └── cancel.tsx    # Cancellation placeholder
-└── README.md             # This file
-```
+Anchor SDK chunks are `lazy()`-imported so they never enter the SSR (Cloudflare Worker)
+module graph.

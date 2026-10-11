@@ -4,7 +4,7 @@
     "name": "kethyr_payroll",
     "version": "0.1.0",
     "spec": "0.1.0",
-    "description": "Kethyr Flow — corporate streaming payroll & treasury protocol on Solana"
+    "description": "KethyrPay — corporate streaming payroll & treasury protocol on Solana"
   },
   "instructions": [
     {

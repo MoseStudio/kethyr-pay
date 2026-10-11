@@ -1,4 +1,4 @@
-# Kethyr Flow — Devnet 路演/评测指南
+# KethyrPay — Devnet 路演/评测指南
 
 面向**观众与评委**：用浏览器 + Phantom 钱包，在 devnet 上亲手跑一遍「流式薪酬」。
 

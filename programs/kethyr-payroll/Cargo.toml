@@ -1,7 +1,7 @@
 [package]
 name = "kethyr-payroll"
 version = "0.1.0"
-description = "Kethyr Flow — corporate streaming payroll & treasury protocol on Solana"
+description = "KethyrPay — corporate streaming payroll & treasury protocol on Solana"
 edition = "2021"
 license = "MIT"
 

@@ -1,5 +1,5 @@
 /**
- * useSolanaPayroll — Anchor Program 客户端封装（Kethyr Flow）。
+ * useSolanaPayroll — Anchor Program 客户端封装（KethyrPay）。
  *
  * 从 wallet-adapter 的 `useConnection/useWallet` 构造 AnchorProvider + Program，
  * 暴露 6 个指令的高层方法。所有 PDA 由 `lib/solana/payroll.ts` 推导。

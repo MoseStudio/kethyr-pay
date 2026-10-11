@@ -12,7 +12,7 @@ import type { ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useWallet } from '@solana/wallet-adapter-react'
 
-import { CheckoutBrandHeader } from '@/components/CheckoutModal.tsx'
+import { BrandHeader } from '@/components/BrandHeader.tsx'
 import { ThemeToggle } from '@/components/ThemeToggle.tsx'
 import { useSolanaReady } from '@/contexts/SolanaProvider.tsx'
 
@@ -25,12 +25,12 @@ export function EmployeePortal({ children }: { children: ReactNode }) {
     <main className="flex min-h-screen items-center justify-center bg-zinc-100 p-4 transition-colors duration-200 dark:bg-zinc-950 md:p-8">
       <div className="flex w-full max-w-2xl flex-col gap-6">
         <div className="flex items-center justify-between gap-3">
-          <CheckoutBrandHeader subtitle="Employee Payroll Portal" />
+          <BrandHeader subtitle="Employee Payroll Portal" />
           <ThemeToggle />
         </div>
 
         <section
-          aria-label="Kethyr Flow Employee Portal"
+          aria-label="KethyrPay Employee Portal"
           className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-xl transition-colors duration-200 md:p-8 dark:border-zinc-800 dark:bg-[#121214] dark:shadow-2xl"
         >
           {/* 标题与钱包按钮同排；说明单独一行，避免文案变长后把按钮挤到下一行 */}
@@ -59,7 +59,7 @@ export function EmployeePortal({ children }: { children: ReactNode }) {
         </section>
 
         <div className="flex items-center justify-between text-[11px] text-zinc-400 dark:text-zinc-500">
-          <span>Kethyr Flow · Streaming Payroll</span>
+          <span>KethyrPay · Streaming Payroll</span>
           <Link to="/payroll" className="transition hover:text-zinc-600 dark:hover:text-zinc-300">
             Employer console →
           </Link>

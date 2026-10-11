@@ -33,7 +33,7 @@ function Connected({ children }: { children: ReactNode }) {
     return (
       <CenteredCard
         title="Connect a Solana wallet to continue"
-        hint="Kethyr Flow uses a Solana wallet (Phantom)"
+        hint="KethyrPay uses a Solana wallet (Phantom)"
       />
     )
   }

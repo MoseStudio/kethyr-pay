@@ -1,9 +1,0 @@
-{
-  "program": "pay_private_v2.aleo",
-  "version": "0.1.0",
-  "description": "KethyrPay single-payment private checkout contract (hackathon)",
-  "license": "MIT",
-  "leo": "4.4.1",
-  "dependencies": null,
-  "dev_dependencies": null
-}
