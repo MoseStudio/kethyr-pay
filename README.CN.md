@@ -195,6 +195,7 @@ VITE_ENABLE_PERFORMANCE_PANEL=false   # 显示右下角性能面板（调试用�
 - 收单合约部署：[`contracts/pay_private_v3/DEPLOYMENT.md`](contracts/pay_private_v3/DEPLOYMENT.md)
 - 托管订阅合约设计：[`contracts/escrow_subscription/DESIGN.md`](contracts/escrow_subscription/DESIGN.md)
 - Kethyr Flow（Solana 流式薪酬）：[`programs/kethyr-payroll/README.md`](programs/kethyr-payroll/README.md)
+- **在线演示（Solana devnet）：** https://kethyrpay.suseayah.workers.dev/payroll · [实测指南](docs/DEMO_DEVNET.md)
 - Demo 自助操作流程：[`docs/DEMO_WALKTHROUGH.md`](docs/DEMO_WALKTHROUGH.md)
 - SDK 使用：[`packages/sdk/README.md`](packages/sdk/README.md)
 - Demo 说明：[`frontend/demo/README.md`](frontend/demo/README.md)

@@ -20,14 +20,20 @@ import { createRequire } from 'node:module'
 const require = createRequire(
   path.resolve(process.cwd(), 'package.json'), // 期望 cwd = frontend/demo
 )
-const { Connection, Keypair, PublicKey, SystemProgram, LAMPORTS_PER_SOL } = require('@solana/web3.js')
+const { Connection, Keypair, PublicKey, SystemProgram, LAMPORTS_PER_SOL, Transaction, sendAndConfirmTransaction } = require('@solana/web3.js')
 const splToken = require('@solana/spl-token')
 const { AnchorProvider, Program, BN } = require('@coral-xyz/anchor')
 
 const RPC = process.env.SOLANA_RPC ?? 'http://127.0.0.1:8899'
 const KEYPAIR_PATH = process.env.SOLANA_KEYPAIR ?? `${os.homedir()}/.config/solana/id.json`
+const IS_LOCAL_RPC = /127\.0\.0\.1|localhost/.test(RPC)
+// 默认 mint 跟随 RPC：本地 validator 用 localnet mint，devnet 用 devnet mint。
+// （两者地址不同，指错了会得到“mint 不存在”这类迷惑性报错。）
 const MINT = new PublicKey(
-  process.env.PAYROLL_MINT ?? '6xPgjRpt3LS3vtxQjJPitNMELtd3sDrCiLHqUqhsbsrm',
+  process.env.PAYROLL_MINT ??
+    (IS_LOCAL_RPC
+      ? '6xPgjRpt3LS3vtxQjJPitNMELtd3sDrCiLHqUqhsbsrm'
+      : 'FZajpoDvjLbpdeK2CvcdGmg1wGqcWrVYqvYC2thFcp8m'),
 )
 const IDL_PATH = path.resolve(process.cwd(), 'src/lib/solana/kethyr_payroll.idl.json')
 const DECIMALS = 6
@@ -137,11 +143,34 @@ console.log('\n=== 0. 准备 ===')
 console.log('employer(CLI):', authority.publicKey.toBase58())
 console.log('employee     :', employee.publicKey.toBase58())
 if ((await connection.getBalance(employee.publicKey)) < 0.5 * LAMPORTS_PER_SOL) {
-  const sig = await connection.requestAirdrop(employee.publicKey, 5 * LAMPORTS_PER_SOL)
-  await connection.confirmTransaction(sig, 'confirmed')
+  if (IS_LOCAL_RPC) {
+    const sig = await connection.requestAirdrop(employee.publicKey, 5 * LAMPORTS_PER_SOL)
+    await connection.confirmTransaction(sig, 'confirmed')
+  } else {
+    // devnet/testnet 的水龙头常被限流（而且 requestAirdrop 的拒绝会逃出 try/catch），
+    // 所以非本地 RPC 一律改由 payer 转账。
+    console.log('  非本地 RPC：由 payer 转账 0.2 SOL 给临时员工钱包')
+    await sendAndConfirmTransaction(
+      connection,
+      new Transaction().add(
+        SystemProgram.transfer({
+          fromPubkey: authority.publicKey,
+          toPubkey: employee.publicKey,
+          lamports: Math.round(0.2 * LAMPORTS_PER_SOL),
+        }),
+      ),
+      [authority],
+    )
+  }
 }
-const employerAta = (await splToken.getOrCreateAssociatedTokenAccount(connection, authority, MINT, authority.publicKey)).address
-const employeeAta = (await splToken.getOrCreateAssociatedTokenAccount(connection, authority, MINT, employee.publicKey)).address
+// 用 idempotent 创建 ATA：省掉一次 getAccountInfo，重复跑也不会失败。
+const ataOf = (owner) => splToken.getAssociatedTokenAddressSync(MINT, owner, false, splToken.TOKEN_PROGRAM_ID)
+const ensureAta = async (owner) => {
+  await splToken.createAssociatedTokenAccountIdempotent(connection, authority, MINT, owner)
+  return ataOf(owner)
+}
+const employerAta = await ensureAta(authority.publicKey)
+const employeeAta = await ensureAta(employee.publicKey)
 await splToken.mintTo(connection, authority, MINT, employerAta, authority, Number(TOTAL))
 
 console.log('\n=== 1. initialize_company ===')
@@ -164,6 +193,11 @@ if (!exists) {
 } else {
   console.log('  company 已存在，跳过 init')
 }
+
+// 基线：devnet 上重复跑会在员工 ATA / 税务金库里留下上次的余额，
+// 所以「资金守恒」必须用本次增量，而不是绝对余额。
+const empStart = await bal(employeeAta)
+const taxStart = await bal(taxVault)
 
 console.log('\n=== 2. create_stream（100 币 / 120s / 15%，起点在过去 60s） ===')
 const now = await readChainNow()
@@ -223,9 +257,11 @@ check('stream.cancelled == true', s.cancelled === true)
 check('托管金库归零', (await bal(vault)) === 0n, fmt(await bal(vault)))
 check('withdrawn + 退款 == 100', s.withdrawn + refunded === TOTAL, `${fmt(s.withdrawn)} + ${fmt(refunded)}`)
 check('结清额 = net + tax', paidNet + paidTax === s.withdrawn - claimed, `${fmt(paidNet)} + ${fmt(paidTax)}`)
-check('资金守恒：员工 + 税库 + 退款 == 100',
-  (await bal(employeeAta)) + (await bal(taxVault)) + refunded === TOTAL,
-  `${fmt(await bal(employeeAta))} + ${fmt(await bal(taxVault))} + ${fmt(refunded)}`)
+const empEnd = await bal(employeeAta)
+const taxEnd = await bal(taxVault)
+check('资金守恒：员工净增 + 税库净增 + 退款 == 100',
+  empEnd - empStart + (taxEnd - taxStart) + refunded === TOTAL,
+  `${fmt(empEnd - empStart)} + ${fmt(taxEnd - taxStart)} + ${fmt(refunded)}`)
 
 console.log('\n=== 5. 负向用例 ===')
 await expectErr('重复 cancel', () =>

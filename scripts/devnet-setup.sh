@@ -53,7 +53,14 @@ if [ "${BAL%.*}" = "0" ]; then
 fi
 
 echo "→ 2/4 部署/升级程序"
-anchor deploy --provider.cluster "$CLUSTER" 2>&1 | tail -4
+DEPLOY_LOG="${TMPDIR:-/tmp}/kethyr-devnet-deploy.log"
+# 注意：不能直接 `anchor deploy | tail`——管道会吃掉退出码，部署失败也看不出来。
+if ! anchor deploy --provider.cluster "$CLUSTER" >"$DEPLOY_LOG" 2>&1; then
+  echo "   !! 部署失败，日志尾部：" >&2
+  tail -20 "$DEPLOY_LOG" >&2
+  exit 1
+fi
+tail -4 "$DEPLOY_LOG"
 
 echo "→ 3/4 创建/复用测试代币 mint（幂等）"
 if spl-token supply "$MINT" --url "$RPC" >/dev/null 2>&1; then

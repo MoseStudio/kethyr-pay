@@ -11,6 +11,8 @@
 
 import { useEffect, useState, type ComponentType } from 'react'
 
+import { useSolanaReady } from '@/contexts/SolanaProvider.tsx'
+
 const WALLET_BUTTON_THEME = `
 .kethyr-solana-wallet .wallet-adapter-button,
 .kethyr-solana-wallet .wallet-adapter-button-trigger {
@@ -31,6 +33,12 @@ const WALLET_BUTTON_THEME = `
 `
 
 export function SolanaWalletButton() {
+  // 必须同时满足「适配器已加载」才渲染 WalletMultiButton：
+  // WalletMultiButton 内部会 useWallet()，若此时 SolanaProvider 还没挂上
+  // WalletProvider，React 会抛
+  // `You have tried to read "publicKey" on a WalletContext without providing one`。
+  // 生产包里 chunk 加载更快，这个竞态更容易出现（dev 下几乎看不到）。
+  const ready = useSolanaReady()
   const [Button, setButton] = useState<ComponentType<{ className?: string }> | null>(null)
 
   useEffect(() => {
@@ -39,7 +47,7 @@ export function SolanaWalletButton() {
     })
   }, [])
 
-  if (!Button) {
+  if (!ready || !Button) {
     return (
       <button
         type="button"

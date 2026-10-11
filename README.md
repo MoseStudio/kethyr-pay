@@ -195,6 +195,7 @@ Optimize payment latency and device power draw; pursue global fiat compliance li
 - Checkout contract deployment: [`contracts/pay_private_v3/DEPLOYMENT.md`](contracts/pay_private_v3/DEPLOYMENT.md)
 - Escrow subscription design: [`contracts/escrow_subscription/DESIGN.md`](contracts/escrow_subscription/DESIGN.md)
 - Kethyr Flow (Solana streaming payroll): [`programs/kethyr-payroll/README.md`](programs/kethyr-payroll/README.md)
+- **Live demo (Solana devnet):** https://kethyrpay.suseayah.workers.dev/payroll · [demo guide](docs/DEMO_DEVNET.md)
 - Demo walkthrough: [`docs/DEMO_WALKTHROUGH.md`](docs/DEMO_WALKTHROUGH.md)
 - SDK usage: [`packages/sdk/README.md`](packages/sdk/README.md)
 - Demo app: [`frontend/demo/README.md`](frontend/demo/README.md)

@@ -2,7 +2,7 @@
 
 面向**观众与评委**：用浏览器 + Phantom 钱包，在 devnet 上亲手跑一遍「流式薪酬」。
 
-> 线上地址：`https://kethyrpay.<你的-worker-子域>.workers.dev`（首次 `wrangler deploy` 后填这里）
+> 线上地址：`https://kethyrpay.suseayah.workers.dev`（雇主页 `/payroll`，员工门户 `/payroll/employee`）
 
 ---
 
