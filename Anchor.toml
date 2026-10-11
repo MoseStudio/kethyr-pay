@@ -14,7 +14,7 @@ cluster = "localnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
-# Kethyr Flow 交付范围不含 TS 测试套件；此处保留 build/deploy 快捷入口。
+# KethyrPay 交付范围不含 TS 测试套件；此处保留 build/deploy 快捷入口。
 build = "anchor build"
 deploy-devnet = "anchor deploy --provider.cluster devnet"
 

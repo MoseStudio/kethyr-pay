@@ -1,4 +1,4 @@
-# Kethyr Flow — Streaming Payroll & Treasury on Solana
+# KethyrPay — Streaming Payroll & Treasury on Solana
 
 > **Colosseum Hackathon · Solana Track**
 
@@ -12,7 +12,7 @@
 
 ---
 
-Salary is not a monthly event — it accrues continuously. **Kethyr Flow** turns payroll into a
+Salary is not a monthly event — it accrues continuously. **KethyrPay** turns payroll into a
 continuously-accruing claim on a Solana program:
 
 - The employer funds a stream **once**; the principal sits in a program-owned vault.
@@ -42,7 +42,7 @@ continuously-accruing claim on a Solana program:
 
 ## The problem
 
-| Who | Problem | Kethyr Flow |
+| Who | Problem | KethyrPay |
 |---|---|---|
 | Employer | Payroll is a monthly batch job: money moves after the work, not with it | Fund once, let the balance accrue second by second |
 | Employee | Waiting 30 days for earned money; cash-flow whiplash | Withdraw any amount, any time, down to the second |

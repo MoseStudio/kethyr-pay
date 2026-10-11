@@ -1,23 +1,13 @@
-import { createCsrfMiddleware, createMiddleware, createStart } from '@tanstack/react-start'
+import { createCsrfMiddleware, createStart } from '@tanstack/react-start'
 
+/**
+ * CSRF 保护 server functions（同源校验）。
+ * 当前应用没有 server function，保留它是为了将来加 API 时默认安全。
+ */
 const csrfMiddleware = createCsrfMiddleware({
   filter: (ctx) => ctx.handlerType === 'serverFn',
 })
 
-const wasmHeadersMiddleware = createMiddleware().server(async ({ next }) => {
-  const result = await next()
-
-  const headers = new Headers(result.response.headers)
-  headers.set('Cross-Origin-Opener-Policy', 'same-origin')
-  headers.set('Cross-Origin-Embedder-Policy', 'require-corp')
-
-  return new Response(result.response.body, {
-    status: result.response.status,
-    statusText: result.response.statusText,
-    headers,
-  })
-})
-
 export const startInstance = createStart(() => ({
-  requestMiddleware: [csrfMiddleware, wasmHeadersMiddleware],
+  requestMiddleware: [csrfMiddleware],
 }))

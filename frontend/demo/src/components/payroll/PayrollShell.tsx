@@ -1,5 +1,5 @@
 /**
- * PayrollShell — Kethyr Flow 薪酬看板外壳。
+ * PayrollShell — KethyrPay 薪酬看板外壳。
  *
  * 复用 MerchantShell 的「画布浮动卡片」视觉语言（zinc 中性色 + blue-600 强调色，
  * rounded-3xl 主卡片，深色面 #121214），但使用薪酬模块自己的导航，与 Aleo 的
@@ -12,9 +12,9 @@ import { Briefcase, UserRound, Wallet } from 'lucide-react'
 import { useWallet } from '@solana/wallet-adapter-react'
 
 import { ThemeToggle } from '@/components/ThemeToggle.tsx'
-import { KethyrLogo } from '@/components/merchant/KethyrLogo.tsx'
+import { KethyrLogo } from '@/components/KethyrLogo.tsx'
 import { useSolanaReady } from '@/contexts/SolanaProvider.tsx'
-import { truncateAddress } from '@/lib/checkout.ts'
+import { truncateAddress } from '@/lib/format.ts'
 
 import { SolanaWalletButton } from './SolanaWalletButton.tsx'
 
@@ -43,7 +43,7 @@ function PayrollSidebar() {
         <div className="flex items-center gap-2 px-2">
           <KethyrLogo size={22} />
           <div className="leading-tight">
-            <p className="text-sm font-semibold tracking-tight">Kethyr Flow</p>
+            <p className="text-sm font-semibold tracking-tight">KethyrPay</p>
             <p className="text-[10px] text-zinc-500 dark:text-zinc-400">Streaming Payroll</p>
           </div>
         </div>

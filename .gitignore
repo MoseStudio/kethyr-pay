@@ -32,10 +32,6 @@ logs/
 *.tmp
 .cache/
 
-# Aleo / Leo
-*.aleo.build/
-deploy-output.json
-
 # Solana / Anchor
 target/
 .anchor/

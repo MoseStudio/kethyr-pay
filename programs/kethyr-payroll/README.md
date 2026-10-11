@@ -1,4 +1,4 @@
-# Kethyr Flow — 企业流式薪酬与财资系统（Solana / Anchor）
+# KethyrPay — 企业流式薪酬与财资系统（Solana / Anchor）
 
 流式支付不做「每秒一笔交易」，而是**基于时间的纯数学确定性结算**：本金一次性注入
 `stream` PDA 托管金库，员工按时间线性解锁，Claim 时在程序内**原子分流**（net 归员工、

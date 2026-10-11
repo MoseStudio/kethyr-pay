@@ -1,5 +1,5 @@
 /**
- * Kethyr Flow — Solana 薪酬模块的 PDA / IDL 层。
+ * KethyrPay — Solana 薪酬模块的 PDA / IDL 层。
  *
  * 数学与格式化在 `vesting.ts`（零依赖），此处只负责链上地址推导与 IDL。
  */

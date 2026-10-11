@@ -1,5 +1,5 @@
 /**
- * Kethyr Flow — 解锁数学与格式化（零依赖纯函数）。
+ * KethyrPay — 解锁数学与格式化（零依赖纯函数）。
  *
  * 与 Rust 端 `PayrollStream` 的实现逐位对齐，且不 import web3/anchor，
  * vitest node 环境可直接单测（无需生成 IDL）。
