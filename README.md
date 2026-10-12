@@ -4,6 +4,8 @@
 
 **Live demo (devnet):** <https://kethyrpay.suseayah.workers.dev/payroll> · [Judge walkthrough](docs/DEMO_DEVNET.md)
 
+**Pitch video (110s):** [![KethyrPay pitch](video/out/poster.png)](video/out/kethyrpay-pitch.mp4) — rendered with Remotion ([source](video/), [narration script](video/README.md))
+
 <div align="center">
 
 **[English](README.md) · [简体中文](README.CN.md)**

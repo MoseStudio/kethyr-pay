@@ -1,0 +1,3 @@
+# Remotion 的打包依赖 esbuild 需要跑 build script（下载原生二进制），显式放行。
+allowBuilds:
+  esbuild: true
