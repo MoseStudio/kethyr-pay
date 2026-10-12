@@ -4,6 +4,8 @@
 
 **在线演示（devnet）：** <https://kethyrpay.suseayah.workers.dev/payroll> · [评委实测指南](docs/DEMO_DEVNET.md)
 
+**Pitch video（110 秒）：** [![KethyrPay pitch](video/out/poster.png)](video/out/kethyrpay-pitch.mp4) —— 用 Remotion 渲染（[源码](video/)、[旁白脚本](video/README.md)）
+
 <div align="center">
 
 **[English](README.md) · [简体中文](README.CN.md)**
